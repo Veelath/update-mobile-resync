@@ -67,7 +67,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             style={styles.eyeBtn}
           >
             <MaterialIcons
-              name={showPassword ? 'visibility' : 'visibility_off'}
+              name={showPassword ? 'visibility' : 'visibility-off'}
               size={18}
               color={colors.hint}
             />

@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import Svg, { Circle } from 'react-native-svg';
+import * as SvgModule from 'react-native-svg';
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const Circle = SvgModule.Circle;
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors, fonts, gradients } from '../theme/colors';

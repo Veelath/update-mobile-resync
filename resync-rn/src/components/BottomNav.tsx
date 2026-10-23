@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import Svg, { Path } from 'react-native-svg';
+import * as SvgModule from 'react-native-svg';
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const Path = SvgModule.Path;
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, fonts } from '../theme/colors';
 

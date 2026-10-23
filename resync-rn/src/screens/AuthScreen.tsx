@@ -9,7 +9,10 @@ import {
   Alert,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import Svg, { Path, Circle } from 'react-native-svg';
+import * as SvgModule from 'react-native-svg';
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const Path = SvgModule.Path;
+const Circle = SvgModule.Circle;
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme/colors';
@@ -175,7 +178,18 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.socialRow}>
           <Pressable
             style={styles.socialBtn}
-            onPress={() => Alert.alert('Google Sign-In', 'Google sign-in demo')}
+            onPress={async () => {
+              await saveSession({
+                isLoggedIn: true,
+                userEmail: 'veronica@stanford.edu',
+                userName: 'Veronica May',
+                userInstitution: 'Stanford University',
+              });
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
+            }}
           >
             <GoogleIcon size={18} />
             <Text style={styles.socialBtnText}>Google</Text>
@@ -183,7 +197,18 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
           <Pressable
             style={styles.socialBtn}
-            onPress={() => Alert.alert('Facebook Sign-In', 'Facebook sign-in demo')}
+            onPress={async () => {
+              await saveSession({
+                isLoggedIn: true,
+                userEmail: 'veronica@stanford.edu',
+                userName: 'Veronica May',
+                userInstitution: 'Stanford University',
+              });
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
+            }}
           >
             <FacebookIcon size={20} />
             <Text style={styles.socialBtnText}>Facebook</Text>

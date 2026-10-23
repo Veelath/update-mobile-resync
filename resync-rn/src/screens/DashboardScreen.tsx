@@ -9,7 +9,11 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
+import * as SvgModule from 'react-native-svg';
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const Defs = SvgModule.Defs;
+const Pattern = SvgModule.Pattern;
+const Rect = SvgModule.Rect;
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';

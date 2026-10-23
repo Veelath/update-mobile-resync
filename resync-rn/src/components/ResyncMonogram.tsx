@@ -1,5 +1,9 @@
 import React from 'react';
-import Svg, { Path, G } from 'react-native-svg';
+import * as SvgModule from 'react-native-svg';
+
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const Path = SvgModule.Path;
+const G = SvgModule.G;
 
 interface Props {
   width?: number;
