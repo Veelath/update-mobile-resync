@@ -1,4 +1,5 @@
 import React from 'react';
+import { Image, ImageStyle } from 'react-native';
 import * as SvgModule from 'react-native-svg';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
@@ -9,17 +10,32 @@ interface Props {
   width?: number;
   height?: number;
   color?: string;
+  usePhoto?: boolean;
+  style?: ImageStyle;
 }
 
 /**
  * Iconic Resync Interlocking S Monogram
- * Perfectly matching the official splash and dashboard brand mark
+ * Supports both exact photo rendering and crisp vector geometry
  */
 export const ResyncMonogram: React.FC<Props> = ({
   width = 60,
   height = 84,
   color = '#0024D9',
+  usePhoto,
+  style,
 }) => {
+  // If usePhoto is explicitly true or color is default blue, render the exact user photo
+  if (usePhoto || (usePhoto === undefined && color === '#0024D9')) {
+    return (
+      <Image
+        source={require('../assets/images/resync_symbol.png')}
+        style={[{ width, height }, style]}
+        resizeMode="contain"
+      />
+    );
+  }
+
   return (
     <Svg width={width} height={height} viewBox="0 0 200 280" fill="none">
       <G fill={color}>
@@ -31,3 +47,4 @@ export const ResyncMonogram: React.FC<Props> = ({
     </Svg>
   );
 };
+

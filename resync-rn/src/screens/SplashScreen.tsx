@@ -1,16 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   StatusBar,
+  Image,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors, fonts } from '../theme/colors';
 import { getSession } from '../services/session';
-import { ResyncMonogram } from '../components/ResyncMonogram';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Splash'>;
@@ -20,7 +18,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   // Symbol animations
   const symbolOpacity = useRef(new Animated.Value(0)).current;
   const symbolScale = useRef(new Animated.Value(0.88)).current;
-  const symbolTranslateX = useRef(new Animated.Value(54)).current; // Starts offset so it's perfectly centered
+  // Starts offset so the symbol is situated directly at the horizontal center of the screen
+  const symbolTranslateX = useRef(new Animated.Value(61)).current;
 
   // Text animations
   const textOpacity = useRef(new Animated.Value(0)).current;
@@ -93,7 +92,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
       <View style={styles.brandLockup}>
-        {/* Symbol: starts centered, then slides left */}
+        {/* Symbol: exact user photo, starts centered, then slides left */}
         <Animated.View
           style={{
             opacity: symbolOpacity,
@@ -103,21 +102,28 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
             ],
           }}
         >
-          <ResyncMonogram width={68} height={96} color="#0024D9" />
+          <Image
+            source={require('../assets/images/resync_symbol.png')}
+            style={styles.symbolImage}
+            resizeMode="contain"
+          />
         </Animated.View>
 
-        {/* Text: stacked "Re" and "Sync", follows the symbol */}
+        {/* Text: exact user photo, follows the symbol into place */}
         <Animated.View
           style={[
-            styles.textStack,
+            styles.textContainer,
             {
               opacity: textOpacity,
               transform: [{ translateX: textTranslateX }],
             },
           ]}
         >
-          <Text style={styles.reText}>Re</Text>
-          <Text style={styles.syncText}>Sync</Text>
+          <Image
+            source={require('../assets/images/resync_text.png')}
+            style={styles.textImage}
+            resizeMode="contain"
+          />
         </Animated.View>
       </View>
     </View>
@@ -135,24 +141,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
   },
-  textStack: {
-    flexDirection: 'column',
+  symbolImage: {
+    width: 74,
+    height: 96,
+  },
+  textContainer: {
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  reText: {
-    fontFamily: fonts.sans[500],
-    fontSize: 46,
-    color: '#0024D9',
-    lineHeight: 46,
-    letterSpacing: -0.6,
-  },
-  syncText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 46,
-    color: '#0024D9',
-    lineHeight: 46,
-    letterSpacing: -0.6,
+  textImage: {
+    width: 108,
+    height: 72,
   },
 });

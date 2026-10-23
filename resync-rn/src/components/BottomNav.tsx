@@ -8,37 +8,41 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, fonts } from '../theme/colors';
 
-// Document with arrow-up upload icon for the center button
+// Document with arrow-up upload icon for the center button matching user's photo
 const DocumentUploadIcon: React.FC<{ size?: number; color?: string }> = ({
-  size = 22,
+  size = 24,
   color = '#FFFFFF',
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    {/* Document sheet with folded top-right corner */}
     <Path
       d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
       stroke={color}
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+    {/* Corner fold flap */}
     <Path
       d="M14 2V8H20"
       stroke={color}
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+    {/* Upward arrow shaft */}
     <Path
-      d="M12 18V12"
+      d="M12 17.5V11"
       stroke={color}
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+    {/* Upward arrow arrowhead */}
     <Path
-      d="M9 15L12 12L15 15"
+      d="M9.5 13.5L12 11L14.5 13.5"
       stroke={color}
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -58,81 +62,138 @@ export const BottomNav: React.FC<BottomTabBarProps> = ({
   }
 
   const isHome = currentRoute === 'Home';
+  const isUpload = currentRoute === 'Upload';
   const isProfile = currentRoute === 'Profile';
 
+  const barHeight = 58 + bottomPad;
+  const totalHeight = 78 + bottomPad;
+
   return (
-    <View style={[styles.container, { paddingBottom: bottomPad, height: 62 + bottomPad }]}>
-      {/* Home Tab */}
-      <Pressable
-        onPress={() => navigation.navigate('Home')}
-        style={styles.tabItem}
-      >
-        <MaterialIcons
-          name="home"
-          size={24}
-          color={isHome ? '#0A2AB8' : '#94A3B8'}
-        />
-        <Text
-          style={[
-            styles.label,
-            { color: isHome ? '#0A2AB8' : '#94A3B8' },
-          ]}
-        >
-          Home
-        </Text>
-      </Pressable>
+    <View
+      style={[
+        styles.outerContainer,
+        { height: totalHeight },
+      ]}
+      pointerEvents="box-none"
+    >
+      {/* 
+        Solid white tab bar background layer.
+        Separating this layer prevents Android ViewGroup from clipping the protruding circle above it!
+      */}
+      <View
+        style={[
+          styles.whiteBarBackground,
+          { height: barHeight, paddingBottom: bottomPad },
+        ]}
+        pointerEvents="none"
+      />
 
-      {/* Center Upload Button - Floating Circle */}
-      <Pressable
-        onPress={() => navigation.navigate('Upload')}
-        style={styles.centerTabItem}
+      {/* Interactive Tabs Row */}
+      <View
+        style={[
+          styles.tabsRow,
+          { height: totalHeight, paddingBottom: bottomPad },
+        ]}
+        pointerEvents="box-none"
       >
-        <View style={styles.centerUploadCircle}>
-          <DocumentUploadIcon size={22} color="#FFFFFF" />
-        </View>
-        <Text style={styles.centerUploadLabel}>Upload</Text>
-      </Pressable>
-
-      {/* Profile Tab */}
-      <Pressable
-        onPress={() => navigation.navigate('Profile')}
-        style={styles.tabItem}
-      >
-        <MaterialIcons
-          name="person"
-          size={24}
-          color={isProfile ? '#0A2AB8' : '#94A3B8'}
-        />
-        <Text
-          style={[
-            styles.label,
-            { color: isProfile ? '#0A2AB8' : '#94A3B8' },
-          ]}
+        {/* Home Tab */}
+        <Pressable
+          onPress={() => navigation.navigate('Home')}
+          style={styles.tabItem}
+          hitSlop={8}
         >
-          Profile
-        </Text>
-      </Pressable>
+          <MaterialIcons
+            name="home"
+            size={24}
+            color={isHome ? '#0A2AB8' : '#94A3B8'}
+          />
+          <Text
+            style={[
+              styles.label,
+              { color: isHome ? '#0A2AB8' : '#94A3B8' },
+            ]}
+          >
+            Home
+          </Text>
+        </Pressable>
+
+        {/* Center Upload Button - Full Unclipped 360-degree Floating Circle */}
+        <Pressable
+          onPress={() => navigation.navigate('Upload')}
+          style={styles.centerTabItem}
+          hitSlop={8}
+        >
+          <View style={styles.centerUploadCircle}>
+            <DocumentUploadIcon size={24} color="#FFFFFF" />
+          </View>
+          <Text
+            style={[
+              styles.centerUploadLabel,
+              isUpload && { color: '#0A2AB8', fontFamily: fonts.sans[700] },
+            ]}
+          >
+            Upload
+          </Text>
+        </Pressable>
+
+        {/* Profile Tab */}
+        <Pressable
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.tabItem}
+          hitSlop={8}
+        >
+          <MaterialIcons
+            name="person"
+            size={24}
+            color={isProfile ? '#0A2AB8' : '#94A3B8'}
+          />
+          <Text
+            style={[
+              styles.label,
+              { color: isProfile ? '#0A2AB8' : '#94A3B8' },
+            ]}
+          >
+            Profile
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
+    backgroundColor: 'transparent',
+    overflow: 'visible',
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
+  whiteBarBackground: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#EEF2F6',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    elevation: 12,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
   },
+  tabsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    backgroundColor: 'transparent',
+    elevation: 8,
+    zIndex: 10,
+  },
   tabItem: {
     flex: 1,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 6,
@@ -147,20 +208,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingBottom: 6,
+    overflow: 'visible',
   },
   centerUploadCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#0A2AB8',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-    marginTop: -22,
-    elevation: 8,
+    elevation: 12,
     shadowColor: '#0A2AB8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.38,
     shadowRadius: 8,
   },
   centerUploadLabel: {
