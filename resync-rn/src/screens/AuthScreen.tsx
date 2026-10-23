@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme/colors';
@@ -20,6 +21,39 @@ import { saveSession } from '../services/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
+
+// Authentic Google Multicolor 'G' Icon
+const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      fill="#4285F4"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <Path
+      fill="#34A853"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <Path
+      fill="#FBBC05"
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+    />
+    <Path
+      fill="#EA4335"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+    />
+  </Svg>
+);
+
+// Authentic Facebook Icon
+const FacebookIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Circle cx="12" cy="12" r="12" fill="#1877F2" />
+    <Path
+      d="M15.12 12.35h-2.12v7.65h-3.16v-7.65H8.35v-2.7h1.49V7.78c0-2.06 1.23-3.18 3.09-3.18.89 0 1.83.16 1.83.16v2.01h-1.03c-1.02 0-1.34.63-1.34 1.28v1.6h2.27l-.36 2.7z"
+      fill="#FFFFFF"
+    />
+  </Svg>
+);
 
 export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
   const initialMode = route.params?.mode || 'login';
@@ -115,7 +149,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.brandTitle}>Resync</Text>
         </View>
 
-        <View style={styles.spacer} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -137,15 +171,13 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
           </Text>
         </View>
 
-        {/* Social Row */}
+        {/* Social Row: Google and Facebook */}
         <View style={styles.socialRow}>
           <Pressable
             style={styles.socialBtn}
             onPress={() => Alert.alert('Google Sign-In', 'Google sign-in demo')}
           >
-            <View style={styles.gTile}>
-              <Text style={styles.gText}>G</Text>
-            </View>
+            <GoogleIcon size={18} />
             <Text style={styles.socialBtnText}>Google</Text>
           </Pressable>
 
@@ -153,9 +185,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
             style={styles.socialBtn}
             onPress={() => Alert.alert('Facebook Sign-In', 'Facebook sign-in demo')}
           >
-            <View style={styles.fbTile}>
-              <Text style={styles.fbText}>f</Text>
-            </View>
+            <FacebookIcon size={20} />
             <Text style={styles.socialBtnText}>Facebook</Text>
           </Pressable>
         </View>
@@ -164,7 +194,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>
-            {isLogin ? 'or continue with email' : 'or fill in the form'}
+            {isLogin ? 'or continue with\nemail' : 'or fill in the\nform'}
           </Text>
           <View style={styles.dividerLine} />
         </View>
@@ -173,7 +203,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.form}>
           {!isLogin && (
             <TextField
-              label="Full name"
+              label="FULL NAME"
               placeholder="Juan Dela Cruz"
               value={name}
               onChangeText={(t) => {
@@ -185,7 +215,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
 
           <TextField
-            label="Email"
+            label="EMAIL"
             placeholder="you@university.edu"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -199,7 +229,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
           {!isLogin && (
             <TextField
-              label="School / University"
+              label="SCHOOL / UNIVERSITY"
               placeholder="e.g. University of the Philippines"
               value={school}
               onChangeText={setSchool}
@@ -207,7 +237,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
 
           <TextField
-            label="Password"
+            label="PASSWORD"
             placeholder="••••••••"
             isPassword
             value={password}
@@ -278,20 +308,20 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.soft,
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(226,232,240,0.55)',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -301,152 +331,142 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   brandTile: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     borderRadius: 7,
-    backgroundColor: colors.action,
+    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandR: {
-    fontFamily: fonts.display[800],
-    fontSize: 15,
+    fontFamily: fonts.sans[800],
+    fontSize: 16,
     color: colors.white,
-    includeFontPadding: false,
+    lineHeight: 18,
   },
   brandTitle: {
-    fontFamily: fonts.display[800],
-    fontSize: 16,
-    color: colors.ink,
+    fontFamily: fonts.sans[700],
+    fontSize: 18,
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
-  spacer: {
+  headerSpacer: {
     width: 38,
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 10,
-    gap: 18,
+    paddingTop: 12,
   },
   titleSection: {
-    gap: 4,
+    marginBottom: 20,
   },
   titleText: {
-    fontFamily: fonts.display[700],
-    fontSize: 26,
-    color: colors.ink,
+    fontFamily: fonts.sans[800],
+    fontSize: 28,
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   subtitleText: {
     fontFamily: fonts.sans[400],
-    fontSize: 13,
-    color: colors.muted,
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 6,
   },
   socialRow: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 18,
   },
   socialBtn: {
     flex: 1,
-    height: 44,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
+    height: 48,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
   socialBtnText: {
-    fontFamily: fonts.sans[600],
-    fontSize: 13.5,
-    color: colors.ink,
-  },
-  gTile: {
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gText: {
     fontFamily: fonts.sans[700],
-    fontSize: 16,
-    color: '#EA4335',
-  },
-  fbTile: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#1877F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fbText: {
-    fontFamily: fonts.sans[700],
-    fontSize: 13,
-    color: colors.white,
+    fontSize: 14,
+    color: '#0F172A',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginVertical: 12,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: '#E2E8F0',
   },
   dividerText: {
-    fontFamily: fonts.sans[400],
-    fontSize: 11.5,
-    color: colors.hint,
+    fontFamily: fonts.sans[500],
+    fontSize: 11,
+    color: '#94A3B8',
+    paddingHorizontal: 12,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   form: {
     gap: 14,
+    marginTop: 8,
   },
   forgotText: {
     fontFamily: fonts.sans[700],
-    fontSize: 11.5,
-    color: colors.action,
+    fontSize: 12,
+    color: '#2563EB',
   },
   agreementWrapper: {
-    gap: 4,
+    marginTop: 2,
+    marginBottom: 4,
   },
   agreementRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    marginTop: 2,
   },
   agreementText: {
     flex: 1,
     fontFamily: fonts.sans[400],
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.body,
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
   },
   agreeError: {
     fontFamily: fonts.sans[400],
     fontSize: 12,
     color: '#DC2626',
-    marginLeft: 30,
+    marginTop: 4,
   },
   submitBtn: {
-    backgroundColor: colors.action,
     height: 50,
-    borderRadius: 12,
-    marginTop: 8,
+    borderRadius: 14,
+    backgroundColor: '#2563EB',
+    marginTop: 6,
+    elevation: 4,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
   switchRow: {
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    marginTop: 22,
+    paddingVertical: 4,
   },
   switchText: {
     fontFamily: fonts.sans[400],
-    fontSize: 13,
-    color: colors.body,
+    fontSize: 13.5,
+    color: '#64748B',
   },
   switchHighlight: {
     fontFamily: fonts.sans[700],
-    color: colors.action,
+    color: '#2563EB',
   },
 });

@@ -17,6 +17,7 @@ import { colors, fonts, gradients } from '../theme/colors';
 import { Button } from '../components/Button';
 import { setOnboardingCompleted } from '../services/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ResyncMonogram } from '../components/ResyncMonogram';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,22 +36,22 @@ interface PageData {
 const PAGES: PageData[] = [
   {
     id: '1',
-    eyebrow: 'Whole-manuscript review',
-    accent: '#93C5FD',
+    eyebrow: 'WHOLE-MANUSCRIPT REVIEW',
+    accent: '#2563EB',
     title: 'See whether every chapter tells one clear story.',
     desc: 'Resync reads your manuscript end-to-end and traces how your objectives, methods, findings, and conclusions connect.',
   },
   {
     id: '2',
-    eyebrow: 'Actionable issue detection',
-    accent: '#93C5FD',
+    eyebrow: 'ACTIONABLE ISSUE DETECTION',
+    accent: '#2563EB',
     title: 'Find the gaps that are easy to miss.',
     desc: 'Get precise, color-coded flags for logic gaps, contradictions, and repeated ideas, with the chapters involved clearly identified.',
   },
   {
     id: '3',
-    eyebrow: 'A clearer path to revision',
-    accent: '#A7F3D0',
+    eyebrow: 'A CLEARER PATH TO REVISION',
+    accent: '#10B981',
     title: 'Revise with evidence, not guesswork.',
     desc: 'Review suggested fixes, verify accessible citations, and use your coherence score to focus your next editing session.',
   },
@@ -92,19 +93,19 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       case 0:
         return (
           <View style={styles.illBox}>
-            {/* Translucent card */}
-            <View style={[styles.cardP1Back, { left: 20, top: 10 }]} />
-            {/* White card */}
-            <View style={[styles.cardP1White, { left: 35, top: 25 }]}>
+            {/* Outer frosted container */}
+            <View style={styles.cardP1Back} />
+            {/* White document card */}
+            <View style={styles.cardP1White}>
               <View style={styles.p1TitleBar} />
               <View style={styles.p1Line} />
               <View style={styles.p1HighlightBox}>
                 <View style={styles.p1HighlightLine} />
               </View>
             </View>
-            {/* Circle with check */}
+            {/* Blue checkmark badge */}
             <View style={styles.p1CheckCircle}>
-              <MaterialIcons name="check" size={28} color={colors.white} />
+              <MaterialIcons name="check" size={24} color={colors.white} />
             </View>
           </View>
         );
@@ -222,16 +223,14 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.headerRow}>
             <View style={styles.logoRow}>
               <View style={styles.logoTile}>
-                <Text style={styles.logoR}>R</Text>
+                <ResyncMonogram width={18} height={22} color="#FFFFFF" />
               </View>
               <Text style={styles.logoBrand}>Resync</Text>
             </View>
 
-            {activeIndex < 2 && (
-              <Pressable onPress={handleSkip}>
-                <Text style={styles.skipText}>Skip intro</Text>
-              </Pressable>
-            )}
+            <Pressable onPress={handleSkip}>
+              <Text style={styles.skipText}>Skip intro</Text>
+            </Pressable>
           </View>
 
           {/* Illustration FlatList */}
@@ -353,25 +352,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: colors.white,
+    backgroundColor: '#1D4ED8',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoR: {
-    fontFamily: fonts.display[800],
-    fontSize: 20,
-    color: colors.primary,
-    includeFontPadding: false,
-  },
   logoBrand: {
-    fontFamily: fonts.display[800],
-    fontSize: 16,
+    fontFamily: fonts.sans[800],
+    fontSize: 18,
     color: colors.white,
+    letterSpacing: -0.3,
   },
   skipText: {
-    fontFamily: fonts.sans[700],
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
+    fontFamily: fonts.sans[600],
+    fontSize: 13,
+    color: colors.white,
   },
   illSlide: {
     width: SCREEN_WIDTH,
@@ -379,65 +375,78 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   illBox: {
-    width: 240,
+    width: 250,
     height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
   // Page 1
   cardP1Back: {
     position: 'absolute',
-    width: 200,
-    height: 140,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 236,
+    height: 146,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
   cardP1White: {
     position: 'absolute',
-    width: 170,
-    height: 110,
-    borderRadius: 12,
+    width: 198,
+    height: 114,
+    borderRadius: 14,
     backgroundColor: colors.white,
-    padding: 14,
+    padding: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
   },
   p1TitleBar: {
-    width: 60,
-    height: 7,
-    backgroundColor: colors.navy,
-    borderRadius: 3,
-    marginBottom: 10,
+    width: 68,
+    height: 8,
+    backgroundColor: '#2E3A59',
+    borderRadius: 4,
+    marginBottom: 12,
   },
   p1Line: {
-    width: 142,
+    width: 166,
     height: 4,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#E2E8F0',
     borderRadius: 2,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   p1HighlightBox: {
-    width: 142,
-    height: 16,
-    borderRadius: 5,
-    backgroundColor: '#E0E7FF',
+    width: 166,
+    height: 18,
+    borderRadius: 6,
+    backgroundColor: '#C7D2FE',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   p1HighlightLine: {
-    width: 122,
+    width: 146,
     height: 4,
-    backgroundColor: 'rgba(10,42,184,0.6)',
+    backgroundColor: '#6366F1',
     borderRadius: 2,
   },
   p1CheckCircle: {
     position: 'absolute',
-    left: 191,
-    top: 116,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    right: 12,
+    bottom: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#60A5FA',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    elevation: 6,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
   },
   // Page 2
   p2DashedLine: {
@@ -540,13 +549,13 @@ const styles = StyleSheet.create({
     marginTop: -20,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: colors.landingBg,
+    backgroundColor: colors.white,
     paddingTop: 26,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
   },
   sheetTopContent: {
-    gap: 12,
+    gap: 10,
   },
   eyebrowRow: {
     flexDirection: 'row',
@@ -554,28 +563,30 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   accentBar: {
-    width: 18,
-    height: 2.5,
-    borderRadius: 1.5,
+    width: 20,
+    height: 2,
+    backgroundColor: '#2563EB',
+    borderRadius: 1,
   },
   eyebrowText: {
-    fontFamily: fonts.sans[800],
+    fontFamily: fonts.sans[700],
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: colors.action,
+    letterSpacing: 0.8,
+    color: '#2563EB',
   },
   titleText: {
-    fontFamily: fonts.display[700],
+    fontFamily: fonts.sans[800],
     fontSize: 24,
     lineHeight: 30,
-    color: colors.ink,
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   descText: {
     fontFamily: fonts.sans[400],
-    fontSize: 13,
+    fontSize: 13.5,
     lineHeight: 20,
-    color: colors.muted,
+    color: '#64748B',
   },
   bottomControls: {
     gap: 16,
@@ -586,20 +597,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
   },
   dotActive: {
-    width: 22,
-    backgroundColor: colors.action,
+    width: 24,
+    backgroundColor: '#2563EB',
   },
   dotInactive: {
-    width: 8,
+    width: 6,
     backgroundColor: '#CBD5E1',
   },
   actionBtn: {
-    backgroundColor: colors.action,
-    borderRadius: 16,
+    backgroundColor: '#2563EB',
+    borderRadius: 14,
+    height: 50,
   },
   signInRow: {
     alignItems: 'center',
@@ -607,11 +619,11 @@ const styles = StyleSheet.create({
   },
   signInMuted: {
     fontFamily: fonts.sans[400],
-    fontSize: 12.5,
-    color: colors.muted,
+    fontSize: 13,
+    color: '#64748B',
   },
   signInHighlight: {
     fontFamily: fonts.sans[700],
-    color: colors.action,
+    color: '#2563EB',
   },
 });

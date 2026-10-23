@@ -1,108 +1,164 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Svg, { Path } from 'react-native-svg';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, fonts } from '../theme/colors';
 
+// Document with arrow-up upload icon for the center button
+const DocumentUploadIcon: React.FC<{ size?: number; color?: string }> = ({
+  size = 22,
+  color = '#FFFFFF',
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M14 2V8H20"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M12 18V12"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M9 15L12 12L15 15"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 export const BottomNav: React.FC<BottomTabBarProps> = ({
   state,
-  descriptors,
   navigation,
 }) => {
   const currentRoute = state.routes[state.index].name;
 
-  // Upload hides the tab bar
-  if (currentRoute === 'Upload') {
+  if (currentRoute === 'UploadScreenModal') {
     return null;
   }
 
-  const items = [
-    { route: 'Home', label: 'Home', icon: 'home' },
-    { route: 'Upload', label: 'Upload', icon: 'upload-file' },
-    { route: 'History', label: 'History', icon: 'history' },
-    { route: 'Profile', label: 'Profile', icon: 'person' },
-  ];
+  const isHome = currentRoute === 'Home';
+  const isProfile = currentRoute === 'Profile';
 
   return (
     <View style={styles.container}>
-      {items.map((item) => {
-        const routeIndex = state.routes.findIndex((r) => r.name === item.route);
-        const isFocused = state.index === routeIndex;
+      {/* Home Tab */}
+      <Pressable
+        onPress={() => navigation.navigate('Home')}
+        style={styles.tabItem}
+      >
+        <MaterialIcons
+          name="home"
+          size={24}
+          color={isHome ? '#1D4ED8' : '#94A3B8'}
+        />
+        <Text
+          style={[
+            styles.label,
+            { color: isHome ? '#1D4ED8' : '#94A3B8' },
+          ]}
+        >
+          Home
+        </Text>
+      </Pressable>
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: state.routes[routeIndex]?.key || item.route,
-            canPreventDefault: true,
-          });
+      {/* Center Upload Button */}
+      <Pressable
+        onPress={() => navigation.navigate('Upload')}
+        style={styles.centerUploadWrapper}
+      >
+        <View style={styles.centerUploadCircle}>
+          <DocumentUploadIcon size={22} color="#FFFFFF" />
+        </View>
+        <Text style={styles.centerUploadLabel}>Upload</Text>
+      </Pressable>
 
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(item.route);
-          }
-        };
-
-        const activeColor = isFocused ? colors.primary : colors.hint;
-
-        return (
-          <Pressable
-            key={item.route}
-            onPress={onPress}
-            style={styles.tabItem}
-            android_ripple={{ color: 'rgba(10,42,184,0.08)', borderless: true }}
-          >
-            {/* Top Indicator Pill */}
-            <View
-              style={[
-                styles.topIndicator,
-                { backgroundColor: isFocused ? colors.primary : 'transparent' },
-              ]}
-            />
-            <MaterialIcons name={item.icon} size={22} color={activeColor} />
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: activeColor,
-                  fontFamily: fonts.sans[500],
-                },
-              ]}
-            >
-              {item.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {/* Profile Tab */}
+      <Pressable
+        onPress={() => navigation.navigate('Profile')}
+        style={styles.tabItem}
+      >
+        <MaterialIcons
+          name="person"
+          size={24}
+          color={isProfile ? '#1D4ED8' : '#94A3B8'}
+        />
+        <Text
+          style={[
+            styles.label,
+            { color: isProfile ? '#1D4ED8' : '#94A3B8' },
+          ]}
+        >
+          Profile
+        </Text>
+      </Pressable>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    height: 64,
+    height: 68,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: '#E2E8F0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
   tabItem: {
     flex: 1,
-    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    gap: 3,
-  },
-  topIndicator: {
-    position: 'absolute',
-    top: 0,
-    width: 24,
-    height: 4,
-    borderRadius: 2,
+    gap: 4,
   },
   label: {
-    fontSize: 11.5,
-    lineHeight: 14,
+    fontSize: 12,
+    fontFamily: fonts.sans[700],
+  },
+  centerUploadWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    top: -12,
+    gap: 3,
+  },
+  centerUploadCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#1D4ED8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+  },
+  centerUploadLabel: {
+    fontSize: 12,
+    fontFamily: fonts.sans[700],
+    color: '#64748B',
   },
 });

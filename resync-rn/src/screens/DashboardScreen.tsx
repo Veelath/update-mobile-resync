@@ -17,6 +17,7 @@ import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { colors, fonts, gradients } from '../theme/colors';
 import { getSession } from '../services/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ResyncMonogram } from '../components/ResyncMonogram';
 
 export const DashboardScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
@@ -161,26 +162,28 @@ export const DashboardScreen: React.FC = () => {
 
           {/* Top row */}
           <View style={styles.topRow}>
-            <View style={styles.heroLogoTile}>
-              <Text style={styles.heroLogoR}>R</Text>
-            </View>
-            <Text style={styles.heroBrandText}>Resync</Text>
-
-            {/* Credits pill */}
-            <View style={styles.creditsPill}>
-              <MaterialIcons name="toll" size={15} color="#A5B4FC" />
-              <Text style={styles.creditsText}>{scansCount} credits</Text>
+            <View style={styles.brandGroup}>
+              <ResyncMonogram width={24} height={30} color="#FFFFFF" />
+              <Text style={styles.heroBrandText}>Resync</Text>
             </View>
 
-            {/* Bell icon */}
-            <View style={styles.bellWrapper}>
-              <MaterialIcons name="notifications-none" size={22} color={colors.white} />
-              <View style={styles.bellDot} />
-            </View>
+            <View style={styles.headerRightGroup}>
+              {/* Credits pill */}
+              <View style={styles.creditsPill}>
+                <MaterialIcons name="toll" size={15} color="#A5B4FC" />
+                <Text style={styles.creditsText}>{scansCount} credits</Text>
+              </View>
 
-            {/* Avatar */}
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>VM</Text>
+              {/* Bell icon */}
+              <View style={styles.bellWrapper}>
+                <MaterialIcons name="notifications-none" size={22} color={colors.white} />
+                <View style={styles.bellDot} />
+              </View>
+
+              {/* Avatar */}
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>VM</Text>
+              </View>
             </View>
           </View>
 
@@ -192,7 +195,7 @@ export const DashboardScreen: React.FC = () => {
           {/* Headline */}
           <Text style={styles.headline}>
             Your manuscript,{' '}
-            <Text style={{ color: '#A5B4FC' }}>checked end-to-end.</Text>
+            <Text style={{ color: '#93C5FD' }}>checked{'\n'}end-to-end.</Text>
           </Text>
 
           {/* Body */}
@@ -383,27 +386,23 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
-  heroLogoTile: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroLogoR: {
-    fontFamily: fonts.display[800],
-    fontSize: 16,
-    color: colors.primary,
-    includeFontPadding: false,
-  },
   heroBrandText: {
-    flex: 1,
-    fontFamily: fonts.display[700],
-    fontSize: 18,
+    fontFamily: fonts.sans[800],
+    fontSize: 20,
     color: colors.white,
+    letterSpacing: -0.4,
   },
   creditsPill: {
     height: 30,
@@ -583,10 +582,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   dashedConnector: {
-    width: 2,
+    width: 1,
     flex: 1,
-    marginVertical: 6,
-    backgroundColor: '#A5B4FC',
+    marginVertical: 4,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
   },
   timelineCard: {
     flex: 1,
