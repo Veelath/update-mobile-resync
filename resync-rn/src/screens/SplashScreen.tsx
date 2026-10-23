@@ -17,27 +17,61 @@ type Props = {
 };
 
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+  // Symbol animations
+  const symbolOpacity = useRef(new Animated.Value(0)).current;
+  const symbolScale = useRef(new Animated.Value(0.88)).current;
+  const symbolTranslateX = useRef(new Animated.Value(54)).current; // Starts offset so it's perfectly centered
+
+  // Text animations
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textTranslateX = useRef(new Animated.Value(-24)).current; // Follows the symbol from the left
 
   useEffect(() => {
-    // Phase 1: Smooth entrance (fade in + gentle scale up)
+    // Stage 1: Symbol appears centered
     Animated.parallel([
-      Animated.timing(fadeAnim, {
+      Animated.timing(symbolOpacity, {
         toValue: 1,
-        duration: 800,
+        duration: 450,
         useNativeDriver: true,
       }),
-      Animated.spring(scaleAnim, {
+      Animated.spring(symbolScale, {
         toValue: 1,
-        tension: 30,
+        tension: 40,
         friction: 6,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Phase 2: Navigate after 2.4s
-    const timer = setTimeout(async () => {
+    // Stage 2: Symbol slides to the left, and the text follows into place
+    const slideTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(symbolTranslateX, {
+          toValue: 0,
+          tension: 35,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(120),
+          Animated.parallel([
+            Animated.timing(textOpacity, {
+              toValue: 1,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.spring(textTranslateX, {
+              toValue: 0,
+              tension: 35,
+              friction: 7,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      ]).start();
+    }, 550);
+
+    // Stage 3: Navigate after full logo reveal
+    const navTimer = setTimeout(async () => {
       const session = await getSession();
       if (!session.hasCompletedOnboarding) {
         navigation.replace('Onboarding');
@@ -46,33 +80,46 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         navigation.replace('Main');
       }
-    }, 2400);
+    }, 3500);
 
-    return () => clearTimeout(timer);
-  }, [fadeAnim, scaleAnim, navigation]);
+    return () => {
+      clearTimeout(slideTimer);
+      clearTimeout(navTimer);
+    };
+  }, [navigation, symbolOpacity, symbolScale, symbolTranslateX, textOpacity, textTranslateX]);
 
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-      <Animated.View
-        style={[
-          styles.brandLockup,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
-        {/* Stylized S-monogram */}
-        <ResyncMonogram width={68} height={84} color="#0A2AB8" />
+      <View style={styles.brandLockup}>
+        {/* Symbol: starts centered, then slides left */}
+        <Animated.View
+          style={{
+            opacity: symbolOpacity,
+            transform: [
+              { translateX: symbolTranslateX },
+              { scale: symbolScale },
+            ],
+          }}
+        >
+          <ResyncMonogram width={68} height={96} color="#0024D9" />
+        </Animated.View>
 
-        {/* Re / Sync Stacked Typography */}
-        <View style={styles.textStack}>
+        {/* Text: stacked "Re" and "Sync", follows the symbol */}
+        <Animated.View
+          style={[
+            styles.textStack,
+            {
+              opacity: textOpacity,
+              transform: [{ translateX: textTranslateX }],
+            },
+          ]}
+        >
           <Text style={styles.reText}>Re</Text>
           <Text style={styles.syncText}>Sync</Text>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </View>
     </View>
   );
 };
@@ -80,7 +127,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -88,24 +135,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: 16,
   },
   textStack: {
     flexDirection: 'column',
     justifyContent: 'center',
   },
   reText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 44,
-    color: '#0A2AB8',
-    lineHeight: 44,
-    letterSpacing: -0.8,
+    fontFamily: fonts.sans[500],
+    fontSize: 46,
+    color: '#0024D9',
+    lineHeight: 46,
+    letterSpacing: -0.6,
   },
   syncText: {
     fontFamily: fonts.sans[800],
-    fontSize: 44,
-    color: '#0A2AB8',
-    lineHeight: 44,
-    letterSpacing: -0.8,
+    fontSize: 46,
+    color: '#0024D9',
+    lineHeight: 46,
+    letterSpacing: -0.6,
   },
 });

@@ -4,6 +4,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import * as SvgModule from 'react-native-svg';
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const Path = SvgModule.Path;
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, fonts } from '../theme/colors';
 
@@ -48,6 +49,8 @@ export const BottomNav: React.FC<BottomTabBarProps> = ({
   state,
   navigation,
 }) => {
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 10);
   const currentRoute = state.routes[state.index].name;
 
   if (currentRoute === 'UploadScreenModal') {
@@ -58,7 +61,7 @@ export const BottomNav: React.FC<BottomTabBarProps> = ({
   const isProfile = currentRoute === 'Profile';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomPad, height: 62 + bottomPad }]}>
       {/* Home Tab */}
       <Pressable
         onPress={() => navigation.navigate('Home')}
@@ -67,22 +70,22 @@ export const BottomNav: React.FC<BottomTabBarProps> = ({
         <MaterialIcons
           name="home"
           size={24}
-          color={isHome ? '#1D4ED8' : '#94A3B8'}
+          color={isHome ? '#0A2AB8' : '#94A3B8'}
         />
         <Text
           style={[
             styles.label,
-            { color: isHome ? '#1D4ED8' : '#94A3B8' },
+            { color: isHome ? '#0A2AB8' : '#94A3B8' },
           ]}
         >
           Home
         </Text>
       </Pressable>
 
-      {/* Center Upload Button */}
+      {/* Center Upload Button - Floating Circle */}
       <Pressable
         onPress={() => navigation.navigate('Upload')}
-        style={styles.centerUploadWrapper}
+        style={styles.centerTabItem}
       >
         <View style={styles.centerUploadCircle}>
           <DocumentUploadIcon size={22} color="#FFFFFF" />
@@ -98,12 +101,12 @@ export const BottomNav: React.FC<BottomTabBarProps> = ({
         <MaterialIcons
           name="person"
           size={24}
-          color={isProfile ? '#1D4ED8' : '#94A3B8'}
+          color={isProfile ? '#0A2AB8' : '#94A3B8'}
         />
         <Text
           style={[
             styles.label,
-            { color: isProfile ? '#1D4ED8' : '#94A3B8' },
+            { color: isProfile ? '#0A2AB8' : '#94A3B8' },
           ]}
         >
           Profile
@@ -115,52 +118,54 @@ export const BottomNav: React.FC<BottomTabBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    height: 68,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#EEF2F6',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    elevation: 8,
+    paddingHorizontal: 16,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-  },
-  label: {
-    fontSize: 12,
-    fontFamily: fonts.sans[700],
-  },
-  centerUploadWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: -12,
+    paddingBottom: 6,
     gap: 3,
   },
+  label: {
+    fontSize: 11,
+    fontFamily: fonts.sans[600],
+  },
+  centerTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 6,
+  },
   centerUploadCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#1D4ED8',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#0A2AB8',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#1D4ED8',
+    marginBottom: 4,
+    marginTop: -22,
+    elevation: 8,
+    shadowColor: '#0A2AB8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   centerUploadLabel: {
-    fontSize: 12,
-    fontFamily: fonts.sans[700],
+    fontSize: 11,
+    fontFamily: fonts.sans[600],
     color: '#64748B',
   },
 });

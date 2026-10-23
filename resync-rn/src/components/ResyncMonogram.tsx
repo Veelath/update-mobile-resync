@@ -17,44 +17,16 @@ interface Props {
  */
 export const ResyncMonogram: React.FC<Props> = ({
   width = 60,
-  height = 74,
-  color = '#0A2AB8',
+  height = 84,
+  color = '#0024D9',
 }) => {
   return (
-    <Svg width={width} height={height} viewBox="0 0 100 120" fill="none">
+    <Svg width={width} height={height} viewBox="0 0 200 280" fill="none">
       <G fill={color}>
-        {/* Upper swoosh: sweeps over the top left and curves gracefully into the center */}
-        <Path
-          d="M 78 34
-             C 78 18, 64 8, 48 8
-             C 28 8, 14 22, 14 44
-             C 14 62, 26 72, 42 78
-             C 38 72, 36 65, 36 58
-             C 36 46, 42 38, 52 32
-             C 44 32, 28 38, 28 46
-             C 28 32, 37 20, 48 20
-             C 60 20, 66 26, 66 34
-             C 66 44, 56 52, 48 58
-             L 54 68
-             C 68 58, 78 48, 78 34
-             Z"
-        />
-        {/* Lower swoosh: sweeps under the bottom right and curves into the center */}
-        <Path
-          d="M 22 86
-             C 22 102, 36 112, 52 112
-             C 72 112, 86 98, 86 76
-             C 86 58, 74 48, 58 42
-             C 62 48, 64 55, 64 62
-             C 64 74, 58 82, 48 88
-             C 56 88, 72 82, 72 74
-             C 72 88, 63 100, 52 100
-             C 40 100, 34 94, 34 86
-             C 34 76, 44 68, 52 62
-             L 46 52
-             C 32 62, 22 72, 22 86
-             Z"
-        />
+        {/* Upper lobe: precision circular arc with 45-degree terminal and central diagonal cut */}
+        <Path d="M 125 63 L 151 37 A 72 72 0 1 0 49 139 L 83 105 A 36 36 0 0 1 125 63 Z" />
+        {/* Lower lobe: 180-degree point-reflected matching ribbon */}
+        <Path d="M 75 217 L 49 243 A 72 72 0 1 0 151 141 L 117 175 A 36 36 0 0 1 75 217 Z" />
       </G>
     </Svg>
   );
