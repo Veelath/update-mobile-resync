@@ -1,0 +1,65 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/BricolageGrotesque-Bold.ttf",
+      "sha1": "0c48c38c9f84c40d05753b18f03e430804abef7e"
+    },
+    {
+      "path": "assets/fonts/BricolageGrotesque-ExtraBold.ttf",
+      "sha1": "10b684c54b5daf2dd97883d1e425b193db6b0957"
+    },
+    {
+      "path": "assets/fonts/BricolageGrotesque-Medium.ttf",
+      "sha1": "00b52748ab0f9d6d9cb7c20ed1f4227d67af6f50"
+    },
+    {
+      "path": "assets/fonts/BricolageGrotesque-SemiBold.ttf",
+      "sha1": "87104d5573f33b6a347484832c03059a58d201d2"
+    },
+    {
+      "path": "assets/fonts/Figtree-Bold.ttf",
+      "sha1": "c9ad837b0fea9924ef0de0b679d35ac6d956fed3"
+    },
+    {
+      "path": "assets/fonts/Figtree-ExtraBold.ttf",
+      "sha1": "0ab9081e50cf072a5f43d378198757e0978a78d1"
+    },
+    {
+      "path": "assets/fonts/Figtree-Medium.ttf",
+      "sha1": "5a2b9db2a1fd3f43439e7d2a062c69c6eaba4cc3"
+    },
+    {
+      "path": "assets/fonts/Figtree-Regular.ttf",
+      "sha1": "12d08905ace747fa86ea5e3c70fcc4b84c690383"
+    },
+    {
+      "path": "assets/fonts/Figtree-SemiBold.ttf",
+      "sha1": "e38d5cfa171e06c5eaeec8749b3a60c428a3d0c9"
+    },
+    {
+      "path": "assets/fonts/GeistMono-Bold.ttf",
+      "sha1": "edb1bd0984d5a54fc15b14eaf8ad40a0245ddda9"
+    },
+    {
+      "path": "assets/fonts/GeistMono-Medium.ttf",
+      "sha1": "c45bfbdfc8eeb648f46d22745ddbe37e641e0499"
+    },
+    {
+      "path": "assets/fonts/GeistMono-Regular.ttf",
+      "sha1": "446e756fd830c11eeb06b94f91ca1ee024caf23d"
+    },
+    {
+      "path": "assets/fonts/SourceSerif4-Bold.ttf",
+      "sha1": "15483fb24ebcdb84de0b59329b19d7b3890878e9"
+    },
+    {
+      "path": "assets/fonts/SourceSerif4-Regular.ttf",
+      "sha1": "b1c1b1ad222503cc7b773c99e97064e7949321ee"
+    },
+    {
+      "path": "assets/fonts/SourceSerif4-SemiBold.ttf",
+      "sha1": "e3141c205bd8b32298b60f9cacc3d558c90dc87a"
+    }
+  ]
+}
