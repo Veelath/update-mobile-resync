@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, fonts, scoreColor } from '../theme/colors';
+import { colors, fonts } from '../theme/colors';
 
 export interface ScoreRingProps {
   score: number;
@@ -19,10 +19,9 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({
   const circumference = 2 * Math.PI * radius;
   const progress = Math.min(Math.max(score, 0), 100);
   const strokeDashoffset = circumference - (circumference * progress) / 100;
-  const strokeColor = scoreColor(score);
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View accessibilityLabel={`Coherence score: ${Math.round(score)} out of 100`} style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {/* Track */}
         <Circle
@@ -38,7 +37,7 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({
           cx={center}
           cy={center}
           r={radius}
-          stroke={strokeColor}
+          stroke={colors.primary}
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={strokeDashoffset}
@@ -56,7 +55,7 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({
             { fontSize: size * 0.32, color: colors.ink },
           ]}
         >
-          {score}
+          {Math.round(score)}
         </Text>
         <Text style={styles.hundredText}>/100</Text>
       </View>
