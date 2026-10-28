@@ -16,7 +16,8 @@ const Pattern = SvgModule.Pattern;
 const Rect = SvgModule.Rect;
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { MainTabParamList } from '../navigation/types';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { colors, fonts, gradients } from '../theme/colors';
 import {supabase} from '../services/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -211,6 +212,10 @@ export const DashboardScreen: React.FC = () => {
             >
               <MaterialIcons name="upload" size={19} color={colors.ink} />
               <Text style={styles.ctaButtonText}>Start a scan</Text>
+            </Pressable>
+
+            <Pressable onPress={() => tabNav.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Report', {sample: true})} style={styles.previewLink}>
+              <Text style={styles.previewText}>View sample report</Text>
             </Pressable>
 
           </View>
