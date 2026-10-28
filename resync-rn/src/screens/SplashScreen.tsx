@@ -10,6 +10,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme/colors';
 import { getSession } from '../services/session';
+import {supabase} from '../services/supabase';
 import { ResyncMonogram } from '../components/ResyncMonogram';
 
 type Props = {
@@ -39,9 +40,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     // Phase 2: Navigate after 2.4s
     const timer = setTimeout(async () => {
       const session = await getSession();
+      const {data: {session: authSession}} = await supabase.auth.getSession();
       if (!session.hasCompletedOnboarding) {
         navigation.replace('Onboarding');
-      } else if (!session.isLoggedIn) {
+      } else if (!authSession) {
         navigation.replace('Auth', { mode: 'login' });
       } else {
         navigation.replace('Main');

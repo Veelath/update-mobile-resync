@@ -16,21 +16,19 @@ const Pattern = SvgModule.Pattern;
 const Rect = SvgModule.Rect;
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainTabParamList, RootStackParamList } from '../navigation/types';
+import { MainTabParamList } from '../navigation/types';
 import { colors, fonts, gradients } from '../theme/colors';
-import { getSession } from '../services/session';
+import {supabase} from '../services/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResyncMonogram } from '../components/ResyncMonogram';
 
 export const DashboardScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const [scansCount, setScansCount] = useState(3);
+  const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
-    getSession().then((s) => setScansCount(s.scansCount));
+    supabase.auth.getUser().then(({data}) => setDisplayName(data.user?.user_metadata?.full_name || data.user?.email || ''));
   }, []);
 
   const timelineSteps = [
@@ -172,12 +170,6 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             <View style={styles.headerRightGroup}>
-              {/* Credits pill */}
-              <View style={styles.creditsPill}>
-                <MaterialIcons name="toll" size={15} color="#A5B4FC" />
-                <Text style={styles.creditsText}>{scansCount} credits</Text>
-              </View>
-
               {/* Bell icon */}
               <View style={styles.bellWrapper}>
                 <MaterialIcons name="notifications-none" size={22} color={colors.white} />
@@ -186,14 +178,14 @@ export const DashboardScreen: React.FC = () => {
 
               {/* Avatar */}
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>VM</Text>
+                <Text style={styles.avatarText}>{displayName.slice(0, 2).toUpperCase()}</Text>
               </View>
             </View>
           </View>
 
           {/* Greeting Pill */}
           <View style={styles.greetingPill}>
-            <Text style={styles.greetingText}>Good morning, Veronica</Text>
+            <Text style={styles.greetingText}>Welcome, {displayName.split(' ')[0]}</Text>
           </View>
 
           {/* Headline */}
@@ -221,16 +213,6 @@ export const DashboardScreen: React.FC = () => {
               <Text style={styles.ctaButtonText}>Start a scan</Text>
             </Pressable>
 
-            <Pressable
-              onPress={() => rootNav.push('Report', { heavy: false })}
-              style={({ pressed }) => [
-                styles.previewLink,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Text style={styles.previewText}>Preview sample</Text>
-              <MaterialIcons name="arrow-forward" size={17} color={colors.white} />
-            </Pressable>
           </View>
 
           {/* Divider */}

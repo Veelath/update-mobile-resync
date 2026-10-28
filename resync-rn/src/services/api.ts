@@ -1,91 +1,107 @@
-import axios from 'axios';
-import { config } from '../config';
-
-export const apiClient = axios.create({
-  baseURL: config.API_BASE_URL,
-  timeout: 60000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-export interface ScanRunRequest {
-  document_url: string;
-  chapter_category?: string;
-  research_theme?: string;
-  research_type?: string;
-}
-
-export interface InconsistencyItem {
-  id: string;
-  kind: 'Issue' | 'Strength';
-  section_a: string;
-  section_b: string;
-  description: string;
-  fix: string;
-  severity?: 'High' | 'Medium' | 'Low';
-}
-
-export interface ReferenceItem {
-  citation: string;
-  url?: string;
-  doi?: string;
-  isValid: boolean;
-}
+import {config} from '../config';
+import {supabase} from './supabase';
 
 export interface ScanResponse {
-  coherence_score: number;
-  overall_assessment: string;
-  inconsistencies: InconsistencyItem[];
-  references: ReferenceItem[];
-  duplicate_sections: string[];
+  status: string;
+  analysis_run_id: string;
+  user_id: string;
+  manuscript_id: string;
+  doc_url: string;
+  overall_coherence_score: number;
+  sections_analyzed: string[];
   missing_sections: string[];
-  created_at: string;
-  manuscript_text?: string;
+  inconsistencies: {
+    inconsistency_id: string;
+    section_a: string;
+    section_b: string;
+    coherence_score: number | null;
+    explanation_what: string;
+    explanation_why: string;
+    suggested_fix: string;
+    finding_status: string;
+  }[];
+  citations: {
+    citation_raw_reference_text: string;
+    citation_is_accessible: boolean;
+    citation_status: string;
+    citation_primary_link?: string | null;
+  }[];
+  score_breakdown?: {
+    overall_score: number;
+    band: string;
+    v6_dimensions?: Record<string, Record<string, number | null>> | null;
+  } | null;
 }
 
-export interface AuthLoginRequest {
-  email: string;
-  password?: string;
+export interface ScanRunRequest {
+  manuscript_title: string;
+  doc_url?: string;
+  file?: {uri: string; name: string; type: string};
+  template_toc?: string[];
+  onProgress?: (elapsedMs: number) => void;
 }
 
-export interface AuthRegisterRequest {
-  name: string;
-  email: string;
-  school: string;
-  password?: string;
+export function validateGoogleDocsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'docs.google.com' && url.pathname.startsWith('/document/d/');
+  } catch {
+    return false;
+  }
 }
 
-export interface AuthResponse {
-  token: string;
-  email: string;
-  name: string;
-  school?: string;
-}
-
-export function validateGoogleDocsUrl(url: string): boolean {
-  if (!url) return false;
-  if (url.includes('demo')) return true;
-  return url.includes('docs.google.com');
+async function checked(response: Response): Promise<any> {
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 402) throw new Error('Insufficient credits to start this scan.');
+  if (!response.ok) {
+    const detail = body.detail;
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail || body) || `HTTP ${response.status}`);
+  }
+  return body;
 }
 
 export async function runScanApi(req: ScanRunRequest): Promise<ScanResponse> {
-  if (!validateGoogleDocsUrl(req.document_url)) {
-    throw new Error('Invalid Google Docs URL');
+  if (!req.file && !validateGoogleDocsUrl(req.doc_url || '')) throw new Error('Enter a valid Google Docs document URL.');
+  const {data: {session}} = await supabase.auth.getSession();
+  if (!session) throw new Error('Your session has expired. Please sign in again.');
+  const headers: Record<string, string> = {Authorization: `Bearer ${session.access_token}`};
+  let body: string | FormData;
+  let endpoint: string;
+  if (req.file) {
+    const form = new FormData();
+    form.append('file', req.file as any);
+    form.append('user_id', session.user.id);
+    form.append('manuscript_title', req.manuscript_title);
+    if (req.template_toc?.length) form.append('template_toc', JSON.stringify(req.template_toc));
+    body = form;
+    endpoint = '/api/scans/upload';
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify({user_id: session.user.id, manuscript_title: req.manuscript_title,
+      doc_url: req.doc_url, ...(req.template_toc?.length ? {template_toc: req.template_toc} : {})});
+    endpoint = '/api/scans/start';
   }
-  const response = await apiClient.post<ScanResponse>('api/scans/run', {
-    chapter_category: 'Full Manuscript',
-    ...req,
-  });
-  return response.data;
-}
-
-export async function loginApi(req: AuthLoginRequest): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>('api/auth/login', req);
-  return response.data;
-}
-
-export async function registerApi(req: AuthRegisterRequest): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>('api/auth/register', req);
-  return response.data;
+  const started = await checked(await fetch(`${config.API_BASE_URL}${endpoint}`, {method: 'POST', headers, body}));
+  const id = started.analysis_run_id;
+  if (!id) throw new Error('Backend accepted the scan without an analysis_run_id.');
+  const startTime = Date.now();
+  let failures = 0;
+  while (Date.now() - startTime < 15 * 60 * 1000) {
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    req.onProgress?.(Date.now() - startTime);
+    let job: any;
+    try {
+      job = await checked(await fetch(`${config.API_BASE_URL}/api/scans/${id}`, {headers}));
+      failures = 0;
+    } catch (error) {
+      if (++failures >= 4) throw new Error(`Lost connection while scanning (${id}): ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
+    if (job.status === 'failed') throw new Error(job.error || `Scan ${id} failed.`);
+    if (job.status === 'completed') {
+      if (!job.result) throw new Error(`Scan ${id} completed without a result.`);
+      return job.result as ScanResponse;
+    }
+  }
+  throw new Error(`Scan timed out. It may still be running on the server (${id}).`);
 }

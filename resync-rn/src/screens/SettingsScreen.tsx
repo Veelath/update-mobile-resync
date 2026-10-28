@@ -15,25 +15,22 @@ import { RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme/colors';
 import { Segmented } from '../components/Segmented';
 import {
-  clearSession,
   getSession,
   saveSession,
-  UserSession,
 } from '../services/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {supabase} from '../services/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const [session, setSession] = useState<UserSession | null>(null);
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('light');
   const [pushNotifs, setPushNotifs] = useState(true);
   const [emailAlerts, setEmailAlerts] = useState(true);
 
   useEffect(() => {
     getSession().then((s) => {
-      setSession(s);
       setTheme(s.themePreference);
       setPushNotifs(s.pushNotifications);
       setEmailAlerts(s.emailAlerts);
@@ -65,7 +62,11 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           text: 'Log Out',
           style: 'destructive',
           onPress: async () => {
-            await clearSession();
+            const {error} = await supabase.auth.signOut();
+            if (error) {
+              Alert.alert('Logout failed', error.message);
+              return;
+            }
             navigation.reset({
               index: 0,
               routes: [{ name: 'Auth', params: { mode: 'login' } }],

@@ -6,7 +6,6 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { MainTabs } from './MainTabs';
 import { ReportScreen } from '../screens/ReportScreen';
-import { CompareScreen } from '../screens/CompareScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -25,7 +24,7 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="Auth" component={AuthScreen} />
       <Stack.Screen name="Main" component={MainTabs} />
       <Stack.Screen name="Report" component={ReportScreen} />
-      <Stack.Screen name="Compare" component={CompareScreen} />
+      {/* Compare depends on the intentionally hidden history flow. */}
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );

@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from './types';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { UploadScreen } from '../screens/UploadScreen';
-import { ArchiveScreen } from '../screens/ArchiveScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { BottomNav } from '../components/BottomNav';
 
@@ -25,7 +24,7 @@ export const MainTabs: React.FC = () => {
           tabBarStyle: { display: 'none' },
         }}
       />
-      <Tab.Screen name="History" component={ArchiveScreen} />
+      {/* History is intentionally hidden until live history is available. */}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

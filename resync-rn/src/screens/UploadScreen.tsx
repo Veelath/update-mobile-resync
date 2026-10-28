@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   BackHandler,
   StatusBar,
-  Alert,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -25,8 +24,8 @@ import {
   QUALITATIVE_TEMPLATE,
   ChapterTemplate,
 } from '../data/templates';
-import { incrementScansCount } from '../services/session';
-import { saveNewScan } from '../services/scanRepository';
+import {executeScan} from '../services/scanRepository';
+import {validateGoogleDocsUrl} from '../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const UploadScreen: React.FC = () => {
@@ -45,6 +44,8 @@ export const UploadScreen: React.FC = () => {
     name: string;
     size: string;
     extension: 'DOCX' | 'PDF';
+    uri: string;
+    type: string;
   } | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -70,6 +71,7 @@ export const UploadScreen: React.FC = () => {
 
   // Step 3 progress state
   const [progress, setProgress] = useState(0);
+  const [scanError, setScanError] = useState('');
 
   // Reload template when scope changes
   useEffect(() => {
@@ -112,13 +114,7 @@ export const UploadScreen: React.FC = () => {
 
     setGdocsStatus('checking');
     debounceTimer.current = setTimeout(() => {
-      if (text.includes('Pr1vat3')) {
-        setGdocsStatus('private');
-      } else if (text.includes('docs.google.com/document') || text.includes('demo')) {
-        setGdocsStatus('ok');
-      } else {
-        setGdocsStatus('invalid');
-      }
+      setGdocsStatus(validateGoogleDocsUrl(text) ? 'ok' : 'invalid');
     }, 900);
   };
 
@@ -140,77 +136,39 @@ export const UploadScreen: React.FC = () => {
         const ext = file.name?.toLowerCase().endsWith('.pdf') ? 'PDF' : 'DOCX';
         setSelectedFile({
           name: file.name || 'manuscript.docx',
-          size: `${sizeMb > 0 ? sizeMb.toFixed(1) : '2.4'} MB · 48 pages`,
+          size: `${sizeMb.toFixed(1)} MB`,
           extension: ext,
+          uri: file.uri,
+          type: file.type || (ext === 'PDF' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
         });
       }
     } catch (e: any) {
       if (e?.code !== 'DOCUMENT_PICKER_CANCELED') {
-        // Fallback for simulation/testing
-        setSelectedFile({
-          name: 'Academic_Burnout_Study_Final.docx',
-          size: '2.4 MB · 48 pages',
-          extension: 'DOCX',
-        });
+        setFileError(e?.message || 'Could not select the file.');
       }
     }
   };
 
-  // Step 3 progress simulation
-  useEffect(() => {
-    if (step === 3) {
-      setProgress(0);
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + 2;
-        });
-      }, 70);
-
-      return () => clearInterval(interval);
+  const handleRunScan = async () => {
+    setScanError('');
+    setProgress(0);
+    setStep(3);
+    try {
+      const title = getDocName();
+      const result = await executeScan({
+        manuscript_title: title,
+        ...(intakeTab === 'file' && selectedFile ? {file: selectedFile} : {doc_url: gdocsUrl.trim()}),
+        template_toc: template.flatMap(chapter => [chapter.title, ...chapter.headings]),
+        onProgress: elapsed => setProgress(Math.floor(elapsed / 1000)),
+      });
+      setProgress(100);
+      setStep(1);
+      tabNav.navigate('Home');
+      rootNav.push('Report', {result, manuscriptTitle: title});
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : String(error));
     }
-  }, [step]);
-
-  useEffect(() => {
-    if (step === 3 && progress >= 100) {
-      const timer = setTimeout(async () => {
-        await incrementScansCount();
-        const docName =
-          selectedFile?.name ||
-          (gdocsStatus === 'ok'
-            ? 'Predictors of Academic Burnout Among STEM Undergraduates'
-            : 'Manuscript_Scan_2026.docx');
-
-        await saveNewScan({
-          id: `scan_${Date.now()}`,
-          title: docName,
-          status: 'Initial scan',
-          date: new Date().toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          }),
-          score: 74,
-          url: docName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-          isGoogleDoc: intakeTab === 'gdocs',
-          heavy: false,
-        });
-
-        // Reset wizard and navigate
-        setStep(1);
-        setSelectedFile(null);
-        setGdocsUrl('');
-        setGdocsStatus('idle');
-        tabNav.navigate('Home');
-        rootNav.push('Report', { heavy: false });
-      }, 700);
-
-      return () => clearTimeout(timer);
-    }
-  }, [step, progress, selectedFile, gdocsStatus, intakeTab, tabNav, rootNav]);
+  };
 
   // Template helpers
   const totalChapters = template.length;
@@ -273,18 +231,9 @@ export const UploadScreen: React.FC = () => {
   const getDocName = () => {
     if (selectedFile) return selectedFile.name;
     if (intakeTab === 'gdocs' && gdocsStatus === 'ok')
-      return 'Predictors of Academic Burnout Among STEM Undergraduates';
+      return 'Google Docs manuscript';
     return 'Your Manuscript';
   };
-
-  // Step 3 checklist items
-  const checklistItems = [
-    { text: 'Reading your manuscript', minP: 15 },
-    { text: 'Matching chapters to your template', minP: 35 },
-    { text: 'Checking logic between chapters', minP: 60 },
-    { text: 'Looking for repeated text', minP: 80 },
-    { text: 'Verifying citations', minP: 95 },
-  ];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -497,8 +446,7 @@ export const UploadScreen: React.FC = () => {
                           color="#10B981"
                         />
                         <Text style={styles.successText}>
-                          Manuscript attached · 6 sections detected
-                        </Text>
+                          Manuscript attached</Text>
                       </View>
                     </View>
                   )
@@ -528,7 +476,7 @@ export const UploadScreen: React.FC = () => {
                         style={styles.gdocsInput}
                         autoCapitalize="none"
                       />
-                      {gdocsUrl ? (
+                      {!!gdocsUrl && (
                         <Pressable
                           onPress={() => {
                             setGdocsUrl('');
@@ -538,17 +486,6 @@ export const UploadScreen: React.FC = () => {
                         >
                           <MaterialIcons name="close" size={15} color={colors.hint} />
                         </Pressable>
-                      ) : (
-                        <Pressable
-                          onPress={() => {
-                            const demo =
-                              'https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit';
-                            handleGdocsChange(demo);
-                          }}
-                          style={styles.pasteBtn}
-                        >
-                          <Text style={styles.pasteBtnText}>Paste</Text>
-                        </Pressable>
                       )}
                     </View>
 
@@ -557,8 +494,7 @@ export const UploadScreen: React.FC = () => {
                       <Text style={styles.gdocsHelper}>
                         Sharing must be set to{' '}
                         <Text style={{ fontFamily: fonts.sans[700] }}>
-                          Anyone with the link can view
-                        </Text>
+                          Anyone with the link can view</Text>
                         .
                       </Text>
                     )}
@@ -583,8 +519,8 @@ export const UploadScreen: React.FC = () => {
                         <FileTile
                           extension="GDOC"
                           tone="#1A73E8"
-                          name="Predictors of Academic Burnout Among STEM Undergraduates"
-                          meta="48 pages · edited 2 days ago"
+                          name={gdocsUrl}
+                          meta="Google Docs link"
                           onRemove={() => {
                             setGdocsUrl('');
                             setGdocsStatus('idle');
@@ -597,8 +533,7 @@ export const UploadScreen: React.FC = () => {
                             color="#10B981"
                           />
                           <Text style={styles.successText}>
-                            Anyone with the link can view · 6 sections detected
-                          </Text>
+                            Link format accepted; sharing will be checked during scan</Text>
                         </View>
                       </View>
                     )}
@@ -688,10 +623,6 @@ export const UploadScreen: React.FC = () => {
                 <View style={styles.statItem}>
                   <Text style={styles.statNum}>{totalHeadings}</Text>
                   <Text style={styles.statLabel}>headings</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNum}>1</Text>
-                  <Text style={styles.statLabel}>credit</Text>
                 </View>
               </View>
 
@@ -847,13 +778,8 @@ export const UploadScreen: React.FC = () => {
               title="Run coherence scan"
               icon="manage-search"
               size="lg"
-              onPress={() => setStep(3)}
+              onPress={handleRunScan}
               style={{ width: '100%' }}
-              rightBadge={
-                <View style={styles.creditBadge}>
-                  <Text style={styles.creditBadgeText}>1 credit</Text>
-                </View>
-              }
             />
           </View>
         </View>
@@ -863,12 +789,14 @@ export const UploadScreen: React.FC = () => {
       {step === 3 && (
         <View style={styles.step3Container}>
           <Text style={styles.stepHeadTag}>STEP 3 · COHERENCE SCAN</Text>
+          {!!scanError && <Text style={styles.fileErrorText}>{scanError}</Text>}
+          {!!scanError && <Button title="Try again" onPress={handleRunScan} />}
 
           <View style={styles.step3CenterBlock}>
-            {/* Big percentage */}
+            {/* Elapsed time is real; the backend does not expose a percentage. */}
             <View style={styles.percentageRow}>
-              <Text style={styles.percentageNumber}>{progress}</Text>
-              <Text style={styles.percentagePercent}>%</Text>
+              <Text style={styles.percentageNumber}>{Math.floor(progress / 60)}:{String(progress % 60).padStart(2, '0')}</Text>
+              <Text style={styles.percentagePercent}>elapsed</Text>
             </View>
 
             <Text style={styles.checkingDocText}>
@@ -878,51 +806,13 @@ export const UploadScreen: React.FC = () => {
             {/* Progress Bar */}
             <View style={styles.scanProgressBar}>
               <View
-                style={[styles.scanProgressFill, { width: `${progress}%` }]}
+                style={[styles.scanProgressFill, { width: `${Math.min(100, progress / 9)}%` }]}
               />
             </View>
 
-            {/* Checklist */}
             <View style={styles.checklist}>
-              {checklistItems.map((item, idx) => {
-                const isDone = progress >= item.minP;
-                const isActive =
-                  progress < item.minP &&
-                  (idx === 0 || progress >= checklistItems[idx - 1].minP);
-
-                return (
-                  <View key={item.text} style={styles.checkItemRow}>
-                    <View
-                      style={[
-                        styles.checkCircle,
-                        isDone && styles.checkCircleDone,
-                        isActive && styles.checkCircleActive,
-                        !isDone && !isActive && styles.checkCirclePending,
-                      ]}
-                    >
-                      {isDone && (
-                        <MaterialIcons
-                          name="check"
-                          size={14}
-                          color={colors.white}
-                        />
-                      )}
-                      {isActive && <View style={styles.activeDot} />}
-                    </View>
-
-                    <Text
-                      style={[
-                        styles.checkItemText,
-                        isActive && styles.checkItemTextActive,
-                        isDone && styles.checkItemTextDone,
-                        !isDone && !isActive && styles.checkItemTextPending,
-                      ]}
-                    >
-                      {item.text}
-                    </Text>
-                  </View>
-                );
-              })}
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.checkItemText}>Scan running on the server. This may take several minutes.</Text>
             </View>
           </View>
 
@@ -939,8 +829,7 @@ export const UploadScreen: React.FC = () => {
               color={colors.muted}
             />
             <Text style={styles.step3FooterText}>
-              You can leave this screen. We'll notify you when your report is
-              ready.
+              Keep this screen open until your report is ready.
             </Text>
           </View>
         </View>

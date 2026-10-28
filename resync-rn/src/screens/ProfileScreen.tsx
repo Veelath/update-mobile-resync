@@ -13,33 +13,35 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme/colors';
 import { getSession, UserSession } from '../services/session';
+import {supabase} from '../services/supabase';
+import {User} from '@supabase/supabase-js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const ProfileScreen: React.FC = () => {
   const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const [session, setSession] = useState<UserSession | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       getSession().then(setSession);
+      supabase.auth.getUser().then(({data}) => setUser(data.user));
     }, [])
   );
 
   const getInitials = (fullName: string) => {
-    if (!fullName) return 'NH';
+    if (!fullName) return '?';
     const parts = fullName.trim().split(/\s+/);
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  const name = session?.userName || 'Noel Henry';
-  const email = session?.userEmail || 'noelhenrymier@gmail.com';
-  const role = session?.userRole || 'Principal Investigator';
-  const institution = session?.userInstitution || 'Stanford University';
-  const bio =
-    session?.userBio ||
-    'Specializing in distributed systems coherence and academic reference validation systems.';
+  const name = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || '';
+  const email = user?.email || '';
+  const role = session?.userRole || '';
+  const institution = user?.user_metadata?.institution || '';
+  const bio = session?.userBio || '';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

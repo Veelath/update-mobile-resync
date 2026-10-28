@@ -1,4 +1,5 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import type {ScanResponse} from '../services/api';
 
 export type MainTabParamList = {
   Home: undefined;
@@ -12,7 +13,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: { mode?: 'signup' | 'login' } | undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
-  Report: { scanId?: string; heavy?: boolean } | undefined;
+  Report: {scanId?: string; heavy?: boolean; result?: ScanResponse; manuscriptTitle?: string} | undefined;
   Compare: { scanIds: string[] };
   Settings: undefined;
 };
