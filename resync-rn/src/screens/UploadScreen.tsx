@@ -69,9 +69,20 @@ export const UploadScreen: React.FC = () => {
   const [templateNotice, setTemplateNotice] = useState('');
   const [hasSavedTemplate, setHasSavedTemplate] = useState(false);
 
-  // Step 3 progress state
-  const [progress, setProgress] = useState(0);
+  const [activeScanStep, setActiveScanStep] = useState(0);
+  const [scanAttempt, setScanAttempt] = useState(0);
   const [scanError, setScanError] = useState('');
+
+  useEffect(() => {
+    if (step !== 3) return;
+    setActiveScanStep(0);
+    let elapsed = 0;
+    const timers = [1500, 2500, 3000, 2000].map((duration, index) => {
+      elapsed += duration;
+      return setTimeout(() => setActiveScanStep(index + 1), elapsed);
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [step, scanAttempt]);
 
   useEffect(() => {
     if (step !== 2) return;
@@ -148,6 +159,7 @@ export const UploadScreen: React.FC = () => {
 
   const handleRunScan = async () => {
     setScanError('');
+    setScanAttempt(attempt => attempt + 1);
     setStep(3);
     try {
       const title = getDocName();
@@ -754,32 +766,26 @@ export const UploadScreen: React.FC = () => {
       {/* STEP 3: SCANNING / PROCESSING */}
       {step === 3 && (
         <View style={styles.step3Container}>
-          <Text style={styles.stepHeadTag}>STEP 3 · COHERENCE SCAN</Text>
-          {!!scanError && <Text style={styles.fileErrorText}>{scanError}</Text>}
-          {!!scanError && <Button title="Try again" onPress={handleRunScan} />}
-
           <View style={styles.step3CenterBlock}>
-            {/* Elapsed time is real; the backend does not expose a percentage. */}
-            <View style={styles.percentageRow}>
-              <Text style={styles.percentageNumber}>{Math.floor(progress / 60)}:{String(progress % 60).padStart(2, '0')}</Text>
-              <Text style={styles.percentagePercent}>elapsed</Text>
-            </View>
-
-            <Text style={styles.checkingDocText}>
-              Checking <Text style={{ fontFamily: fonts.sans[700] }}>{getDocName()}</Text>
-            </Text>
-
-            {/* Progress Bar */}
-            <View style={styles.scanProgressBar}>
-              <View
-                style={[styles.scanProgressFill, { width: `${Math.min(100, progress / 9)}%` }]}
-              />
-            </View>
-
-            <View style={styles.checklist}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.checkItemText}>Scan running on the server. This may take several minutes.</Text>
-            </View>
+            <Text style={styles.stepTitle}>Analyzing your manuscript</Text>
+            <Text style={styles.stepSub}>Running 4 checks across consecutive sections</Text>
+            {[
+              'Reading your manuscript',
+              'Checking section flow',
+              'Analyzing logical coherence',
+              'Verifying citation access',
+              'Finalizing your report',
+            ].map((label, index) => (
+              <View key={label} style={styles.checkItemRow}>
+                <Text style={[styles.checkItemText, {color: index === activeScanStep ? colors.ink : colors.hint}]}>
+                  {label}
+                </Text>
+                {index === activeScanStep ? <ActivityIndicator size="small" color={colors.primary} /> :
+                  index < activeScanStep ? <MaterialIcons name="check" size={18} color={colors.primary} /> : null}
+              </View>
+            ))}
+            {!!scanError && <Text style={styles.fileErrorText}>{scanError}</Text>}
+            {!!scanError && <Button title="Try again" onPress={handleRunScan} />}
           </View>
 
           {/* Footer note */}
@@ -1276,94 +1282,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
     paddingHorizontal: 22,
-    paddingTop: 16,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   step3CenterBlock: {
-    gap: 20,
-    paddingVertical: 20,
-  },
-  percentageRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  percentageNumber: {
-    fontFamily: fonts.display[800],
-    fontSize: 56,
-    letterSpacing: -2,
-    color: colors.ink,
-  },
-  percentagePercent: {
-    fontFamily: fonts.sans[400],
-    fontSize: 24,
-    color: colors.hint,
-    marginLeft: 4,
-  },
-  checkingDocText: {
-    fontFamily: fonts.sans[400],
-    fontSize: 15,
-    color: colors.body,
-  },
-  scanProgressBar: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.track,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  scanProgressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-  checklist: {
-    marginTop: 10,
+    gap: 12,
+    paddingVertical: 12,
   },
   checkItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     gap: 12,
   },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkCircleDone: {
-    backgroundColor: colors.ink,
-  },
-  checkCircleActive: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  activeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-  checkCirclePending: {
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-  },
   checkItemText: {
     fontFamily: fonts.sans[400],
     fontSize: 14.5,
-  },
-  checkItemTextActive: {
-    fontFamily: fonts.sans[600],
-    color: colors.ink,
-  },
-  checkItemTextDone: {
-    color: colors.ink,
-  },
-  checkItemTextPending: {
-    color: colors.hint,
+    flex: 1,
   },
   step3Footer: {
     flexDirection: 'row',
@@ -1372,6 +1309,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.line,
     paddingTop: 16,
+    marginTop: 20,
   },
   step3FooterText: {
     flex: 1,
