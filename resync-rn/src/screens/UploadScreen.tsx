@@ -286,7 +286,7 @@ export const UploadScreen: React.FC = () => {
     (intakeTab === 'gdocs' && gdocsStatus === 'ok');
 
   const getDocName = () => {
-    if (selectedFile) return selectedFile.name;
+    if (intakeTab === 'file' && selectedFile) return selectedFile.name;
     if (intakeTab === 'gdocs' && gdocsStatus === 'ok')
       return 'Google Docs manuscript';
     return 'Your Manuscript';
