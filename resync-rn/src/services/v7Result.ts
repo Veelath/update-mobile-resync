@@ -117,7 +117,7 @@ export function isV7Result(result: ScanResult | null | undefined): result is V7S
 export function adaptScanResult(raw: unknown): ScanResult {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid scan result.');
   const result = raw as LegacyScanResponse;
-  return isV7Result(result) ? result : result;
+  return result;
 }
 
 export const DIMENSION_KEYS: DimensionKey[] = ['objectives_alignment', 'methodology_fit', 'claim_support', 'numeric_consistency'];
