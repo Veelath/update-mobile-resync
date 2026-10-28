@@ -1,0 +1,485 @@
+{
+  "status": "completed",
+  "doc_url": "p7-contradiction.docx",
+  "user_id": "[masked]",
+  "citations": [],
+  "ai_synthesis": {
+    "summary": "The manuscript pairs demonstrate varying levels of logical correlation and overall coherence across sections. The abstract-to-introduction pair shows strong overall coherence (0.87), which increases further in the introduction-to-related studies pair (0.89). Coherence decreases moderately for the related studies-to-methodology pair (0.77), before rising again in the methodology-to-results transition (0.84). The results-to-discussion pair records a lower overall coherence (0.74) and contains material issues involving contradictions regarding treatment effects and observed task completion, where Section A indicates a 40% improvement and measurable increase in completed tasks, while Section B states the treatment had no measurable effect and task completion remained unchanged. Finally, the discussion-to-conclusion pair exhibits an overall coherence score of 0.78.",
+    "weakest_pair": {
+      "order": 5,
+      "score": 73.66,
+      "section_a": "results",
+      "section_b": "discussion",
+      "overall_coherence": 0.7365580797195435
+    },
+    "strongest_pair": {
+      "order": 2,
+      "score": 88.85,
+      "section_a": "introduction",
+      "section_b": "related studies",
+      "overall_coherence": 0.8885260224342346
+    }
+  },
+  "manuscript_id": "[masked]",
+  "db_save_status": "success",
+  "result_version": "v7",
+  "analysis_run_id": "[masked]",
+  "inconsistencies": [
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "evidence_a": "The treatment group improved task completion by 40% compared with the control group.",
+      "evidence_b": "The treatment had no measurable effect on task completion compared with the control group.",
+      "pair_order": 5,
+      "suggested_fix": "The treatment had a measurable effect, improving task completion by 40% compared with the control group.",
+      "finding_status": "material_issue",
+      "coherence_score": 73.66,
+      "evidence_quotes": [
+        {
+          "text": "The treatment had no measurable effect on task completion compared with the control group.",
+          "section": "discussion"
+        },
+        {
+          "text": "The treatment group improved task completion by 40% compared with the control group.",
+          "section": "results"
+        },
+        {
+          "text": "This was a measurable increase in completed tasks.",
+          "section": "results"
+        },
+        {
+          "text": "The observed task completion remained unchanged.",
+          "section": "discussion"
+        }
+      ],
+      "explanation_why": "Section A states that the treatment group improved task completion by 40%, whereas Section B states the treatment had no measurable effect.",
+      "explanation_what": "Contradiction regarding treatment effect",
+      "inconsistency_id": "802e94b1-3049-4804-9f2b-bad4df26addc",
+      "evidence_verified": true
+    },
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "evidence_a": "The treatment group improved task completion by 40% compared with the control group.",
+      "evidence_b": "The observed task completion remained unchanged.",
+      "pair_order": 5,
+      "suggested_fix": "The treatment had a measurable effect, improving task completion by 40% compared with the control group.",
+      "finding_status": "material_issue",
+      "coherence_score": 73.66,
+      "evidence_quotes": [
+        {
+          "text": "The observed task completion remained unchanged.",
+          "section": "discussion"
+        },
+        {
+          "text": "The treatment group improved task completion by 40% compared with the control group.",
+          "section": "results"
+        },
+        {
+          "text": "This was a measurable increase in completed tasks.",
+          "section": "results"
+        },
+        {
+          "text": "The treatment had no measurable effect on task completion compared with the control group.",
+          "section": "discussion"
+        }
+      ],
+      "explanation_why": "Section A states there was a measurable increase in completed tasks, whereas Section B states task completion remained unchanged.",
+      "explanation_what": "Contradiction regarding observed completion",
+      "inconsistency_id": "220aa8e1-f32e-4539-8310-793d75747926",
+      "evidence_verified": true
+    }
+  ],
+  "manuscript_flow": [
+    {
+      "order": 1,
+      "scores": {
+        "claim_support": 0.813507616519928,
+        "methodology_fit": 0.7759464383125305,
+        "overall_coherence": 0.8704161643981934,
+        "numeric_consistency": 0.8268017172813416,
+        "objectives_alignment": 0.8082230687141418
+      },
+      "section_a": "abstract",
+      "section_b": "introduction",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "abstract",
+            "sentence": "This study tests a treatment for improving task completion."
+          },
+          {
+            "section": "abstract",
+            "sentence": "The same group comparison is reported in the results and discussed later."
+          },
+          {
+            "section": "introduction",
+            "sentence": "The study asks whether the treatment improves task completion compared with a control group."
+          },
+          {
+            "section": "introduction",
+            "sentence": "Improvement is measured as the percentage change in completed tasks."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.813507616519928,
+          "numeric": 0.8268017172813416,
+          "overall": 0.8704161643981934,
+          "objectives": 0.8082230687141418,
+          "methodology": 0.7759464383125305
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.7300601005554199,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 2,
+      "scores": {
+        "claim_support": 0.8461690545082092,
+        "methodology_fit": 0.8054379224777222,
+        "overall_coherence": 0.8885260224342346,
+        "numeric_consistency": 0.8563978672027588,
+        "objectives_alignment": 0.8368175625801086
+      },
+      "section_a": "introduction",
+      "section_b": "related studies",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "introduction",
+            "sentence": "The study asks whether the treatment improves task completion compared with a control group."
+          },
+          {
+            "section": "introduction",
+            "sentence": "Improvement is measured as the percentage change in completed tasks."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Previous task completion comparisons established the study context."
+          },
+          {
+            "section": "related studies",
+            "sentence": "This section introduces the common comparison between treatment and control groups."
+          },
+          {
+            "section": "related studies",
+            "sentence": "The related discussion further describes task completion as the measured outcome."
+          },
+          {
+            "section": "related studies",
+            "sentence": "The same outcome is compared in the results and discussion."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.8461690545082092,
+          "numeric": 0.8563978672027588,
+          "overall": 0.8885260224342346,
+          "objectives": 0.8368175625801086,
+          "methodology": 0.8054379224777222
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.7384759187698364,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 3,
+      "scores": {
+        "claim_support": 0.7099570035934448,
+        "methodology_fit": 0.6563050746917725,
+        "overall_coherence": 0.7745463252067566,
+        "numeric_consistency": 0.7538888454437256,
+        "objectives_alignment": 0.6852177977561951
+      },
+      "section_a": "related studies",
+      "section_b": "methodology",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "related studies",
+            "sentence": "Previous task completion comparisons established the study context."
+          },
+          {
+            "section": "related studies",
+            "sentence": "This section introduces the common comparison between treatment and control groups."
+          },
+          {
+            "section": "related studies",
+            "sentence": "The related discussion further describes task completion as the measured outcome."
+          },
+          {
+            "section": "related studies",
+            "sentence": "The same outcome is compared in the results and discussion."
+          },
+          {
+            "section": "methodology",
+            "sentence": "We compared a treatment group with a control group using the same task completion measure."
+          },
+          {
+            "section": "methodology",
+            "sentence": "Both groups completed the same set of tasks."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.7099570035934448,
+          "numeric": 0.7538888454437256,
+          "overall": 0.7745463252067566,
+          "objectives": 0.6852177977561951,
+          "methodology": 0.6563050746917725
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.6996711492538452,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 4,
+      "scores": {
+        "claim_support": 0.8077366352081299,
+        "methodology_fit": 0.7539605498313904,
+        "overall_coherence": 0.8435726761817932,
+        "numeric_consistency": 0.8053076267242432,
+        "objectives_alignment": 0.7640162706375122
+      },
+      "section_a": "methodology",
+      "section_b": "results",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "methodology",
+            "sentence": "We compared a treatment group with a control group using the same task completion measure."
+          },
+          {
+            "section": "methodology",
+            "sentence": "Both groups completed the same set of tasks."
+          },
+          {
+            "section": "results",
+            "sentence": "The treatment group improved task completion by 40% compared with the control group."
+          },
+          {
+            "section": "results",
+            "sentence": "This was a measurable increase in completed tasks."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.8077366352081299,
+          "numeric": 0.8053076267242432,
+          "overall": 0.8435726761817932,
+          "objectives": 0.7640162706375122,
+          "methodology": 0.7539605498313904
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.7008829116821289,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 5,
+      "scores": {
+        "claim_support": 0.6862213015556335,
+        "methodology_fit": 0.6315416097640991,
+        "overall_coherence": 0.7365580797195435,
+        "numeric_consistency": 0.7110224962234497,
+        "objectives_alignment": 0.6542130708694458
+      },
+      "section_a": "results",
+      "section_b": "discussion",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "results",
+            "sentence": "The treatment group improved task completion by 40% compared with the control group."
+          },
+          {
+            "section": "results",
+            "sentence": "This was a measurable increase in completed tasks."
+          },
+          {
+            "section": "discussion",
+            "sentence": "The treatment had no measurable effect on task completion compared with the control group."
+          },
+          {
+            "section": "discussion",
+            "sentence": "The observed task completion remained unchanged."
+          }
+        ],
+        "recommendations": [
+          {
+            "section": "discussion",
+            "original_sentence": "The treatment had no measurable effect on task completion compared with the control group.",
+            "recommended_revision": "The treatment had a measurable effect, improving task completion by 40% compared with the control group."
+          },
+          {
+            "section": "discussion",
+            "original_sentence": "The observed task completion remained unchanged.",
+            "recommended_revision": "The observed task completion showed a measurable increase."
+          }
+        ],
+        "coherence_scores": {
+          "claims": 0.6862213015556335,
+          "numeric": 0.7110224962234497,
+          "overall": 0.7365580797195435,
+          "objectives": 0.6542130708694458,
+          "methodology": 0.6315416097640991
+        },
+        "highlighted_inconsistencies": [
+          {
+            "why": "Section A states that the treatment group improved task completion by 40%, whereas Section B states the treatment had no measurable effect.",
+            "what": "Contradiction regarding treatment effect",
+            "quote": "The treatment had no measurable effect on task completion compared with the control group.",
+            "section": "discussion"
+          },
+          {
+            "why": "Section A states there was a measurable increase in completed tasks, whereas Section B states task completion remained unchanged.",
+            "what": "Contradiction regarding observed completion",
+            "quote": "The observed task completion remained unchanged.",
+            "section": "discussion"
+          }
+        ]
+      },
+      "pair_weight": 0.6583191156387329,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 6,
+      "scores": {
+        "claim_support": 0.7159596681594849,
+        "methodology_fit": 0.6595732569694519,
+        "overall_coherence": 0.7836434841156006,
+        "numeric_consistency": 0.7308433651924133,
+        "objectives_alignment": 0.6824802160263062
+      },
+      "section_a": "discussion",
+      "section_b": "conclusion",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "discussion",
+            "sentence": "The treatment had no measurable effect on task completion compared with the control group."
+          },
+          {
+            "section": "discussion",
+            "sentence": "The observed task completion remained unchanged."
+          },
+          {
+            "section": "conclusion",
+            "sentence": "The findings describe the treatment and control group comparison."
+          },
+          {
+            "section": "conclusion",
+            "sentence": "The conclusion should follow the reported task completion results."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.7159596681594849,
+          "numeric": 0.7308433651924133,
+          "overall": 0.7836434841156006,
+          "objectives": 0.6824802160263062,
+          "methodology": 0.6595732569694519
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.6910095810890198,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "pair_order": 5,
+      "original_sentence": "The treatment had no measurable effect on task completion compared with the control group.",
+      "recommendation_id": "3c3ad363-922e-4b4a-8afd-82eedad70fe6",
+      "recommendation_text": "The treatment had a measurable effect, improving task completion by 40% compared with the control group.",
+      "recommended_revision": "The treatment had a measurable effect, improving task completion by 40% compared with the control group.",
+      "recommendation_priority": "Low"
+    },
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "pair_order": 5,
+      "original_sentence": "The observed task completion remained unchanged.",
+      "recommendation_id": "3aceafd8-118a-4316-bd80-451937340d09",
+      "recommendation_text": "The observed task completion showed a measurable increase.",
+      "recommended_revision": "The observed task completion showed a measurable increase.",
+      "recommendation_priority": "Low"
+    }
+  ],
+  "score_breakdown": {
+    "band": "Solid",
+    "dimensions": {
+      "claim_support": 0.7633,
+      "methodology_fit": 0.7138,
+      "numeric_consistency": 0.7807,
+      "objectives_alignment": 0.7385
+    },
+    "overall_score": 81.81,
+    "citation_detail": {
+      "total_entries": 0,
+      "cross_match_score": 0.0,
+      "well_formed_ratio": 0.0,
+      "link_resolution_rate": 0.0
+    },
+    "citation_integrity_score": null,
+    "cross_chapter_coherence_score": 81.81
+  },
+  "ai_text_indicator": {
+    "disclaimer": "Advisory only, not an academic-integrity determination. This is a stylometric heuristic over surface features (sentence-length uniformity, lexical diversity, transition-phrase density, opening-word repetition, and sentence-embedding self-similarity) -- it cannot verify authorship and cannot detect real generative-model watermarks (e.g. Google SynthID), which are cryptographic signals embedded at the token-sampling level and are not recoverable from output text by any third party without the issuing model's own detection service. Formal academic prose already exhibits many of these same surface features, so well-written human capstone chapters can score in the 40-60 range; this indicator must never be used to block a submission or as a plagiarism/integrity charge on its own.",
+    "overall_score": null,
+    "section_scores": {
+      "results": null,
+      "abstract": null,
+      "conclusion": null,
+      "discussion": null,
+      "methodology": null,
+      "introduction": null,
+      "related studies": null
+    },
+    "flagged_sections": []
+  },
+  "citations_audited": 0,
+  "credits_remaining": 999,
+  "sections_analyzed": [
+    "abstract",
+    "introduction",
+    "related studies",
+    "methodology",
+    "results",
+    "discussion",
+    "conclusion"
+  ],
+  "inconsistencies_found": 2,
+  "notification_dispatched": true,
+  "overall_coherence_score": 81.81
+}

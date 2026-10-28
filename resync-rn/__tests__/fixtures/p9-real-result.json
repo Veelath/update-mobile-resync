@@ -1,0 +1,712 @@
+{
+  "status": "completed",
+  "doc_url": "v7_e2e.docx",
+  "user_id": "d3550bf5-d01a-4d10-87ea-6bd8b6ca34c5",
+  "citations": [],
+  "ai_synthesis": {
+    "summary": "The manuscript pairs show varying levels of logical correlation, with overall coherence scores ranging from 59% between the related studies and objectives sections to 82% between the introduction and related studies sections. Abstract to introduction yields 80% overall coherence, objectives to methodology achieves 68%, methodology to results reaches 73%, results to discussion records 67%, and discussion to conclusion attains 80%. Specific material issues were identified between results and discussion (67% coherence) and between discussion and conclusion (80% coherence) due to contradictions in numerical direction and findings regarding score changes and program impacts.",
+    "weakest_pair": {
+      "order": 3,
+      "score": 59.01,
+      "section_a": "related studies",
+      "section_b": "objectives",
+      "overall_coherence": 0.5900638103485107
+    },
+    "strongest_pair": {
+      "order": 2,
+      "score": 82,
+      "section_a": "introduction",
+      "section_b": "related studies",
+      "overall_coherence": 0.8200330138206482
+    }
+  },
+  "manuscript_id": "6fd20831-f1be-4b21-9ecf-e1ffe093f440",
+  "db_save_status": "success",
+  "result_version": "v7",
+  "analysis_run_id": "377a301f-1d5e-4c69-8c04-79308a5fc709",
+  "inconsistencies": [
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "evidence_a": "Thirty students completed both reading tasks.",
+      "evidence_b": "The paired reading scores fell by 23 points after guided reading.",
+      "pair_order": 6,
+      "suggested_fix": "The paired reading scores increased by 23 points after guided reading.",
+      "finding_status": "material_issue",
+      "coherence_score": 66.9,
+      "evidence_quotes": [
+        {
+          "text": "The paired reading scores fell by 23 points after guided reading.",
+          "section": "discussion"
+        },
+        {
+          "text": "Thirty students completed both reading tasks.",
+          "section": "results"
+        },
+        {
+          "text": "The pre-test mean was 55 out of 100 and the post-test mean was 78 out of 100.",
+          "section": "results"
+        },
+        {
+          "text": "The reported mean increase was 23 points.",
+          "section": "results"
+        },
+        {
+          "text": "These values describe the students who completed the paired tasks in this course.",
+          "section": "results"
+        },
+        {
+          "text": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+          "section": "discussion"
+        },
+        {
+          "text": "The interpretation is limited to the observed group and the measurements described in Results.",
+          "section": "discussion"
+        }
+      ],
+      "explanation_why": "Section A states that scores increased from a pre-test mean of 55 to a post-test mean of 78 (a rise of 23 points), whereas Section B states that scores fell by 23 points.",
+      "explanation_what": "Contradiction in numerical direction",
+      "inconsistency_id": "2c1b58d1-9c04-400e-a887-b5267d09315c",
+      "evidence_verified": true
+    },
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "evidence_a": "Thirty students completed both reading tasks.",
+      "evidence_b": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+      "pair_order": 6,
+      "suggested_fix": "The paired reading scores increased by 23 points after guided reading.",
+      "finding_status": "material_issue",
+      "coherence_score": 66.9,
+      "evidence_quotes": [
+        {
+          "text": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+          "section": "discussion"
+        },
+        {
+          "text": "Thirty students completed both reading tasks.",
+          "section": "results"
+        },
+        {
+          "text": "The pre-test mean was 55 out of 100 and the post-test mean was 78 out of 100.",
+          "section": "results"
+        },
+        {
+          "text": "The reported mean increase was 23 points.",
+          "section": "results"
+        },
+        {
+          "text": "These values describe the students who completed the paired tasks in this course.",
+          "section": "results"
+        },
+        {
+          "text": "The paired reading scores fell by 23 points after guided reading.",
+          "section": "discussion"
+        },
+        {
+          "text": "The interpretation is limited to the observed group and the measurements described in Results.",
+          "section": "discussion"
+        }
+      ],
+      "explanation_why": "Section B interprets the change as a decline and reduction, which conflicts with the positive mean increase reported in Section A.",
+      "explanation_what": "Inconsistent claim based on results",
+      "inconsistency_id": "20570962-18e7-45be-b071-55a8695582f8",
+      "evidence_verified": true
+    },
+    {
+      "section_a": "discussion",
+      "section_b": "conclusion",
+      "evidence_a": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+      "evidence_b": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+      "pair_order": 7,
+      "suggested_fix": "",
+      "finding_status": "material_issue",
+      "coherence_score": 79.68,
+      "evidence_quotes": [
+        {
+          "text": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+          "section": "discussion"
+        },
+        {
+          "text": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+          "section": "conclusion"
+        }
+      ],
+      "explanation_why": "Section A states that the program reduced reading comprehension, whereas Section B states that the program improved it.",
+      "explanation_what": "Direction of findings contradicts the conclusion.",
+      "inconsistency_id": "3eb88f2c-266c-47ab-a166-cf3fa62f7ec4",
+      "evidence_verified": true
+    },
+    {
+      "section_a": "discussion",
+      "section_b": "conclusion",
+      "evidence_a": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+      "evidence_b": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+      "pair_order": 7,
+      "suggested_fix": "The manuscript concludes that guided reading reduced reading comprehension in the course.",
+      "finding_status": "material_issue",
+      "coherence_score": 79.68,
+      "evidence_quotes": [
+        {
+          "text": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+          "section": "conclusion"
+        },
+        {
+          "text": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+          "section": "discussion"
+        }
+      ],
+      "explanation_why": "Section B states that guided reading improved comprehension, while Section A states that scores fell and the program reduced comprehension.",
+      "explanation_what": "Direction of findings contradicts the discussion.",
+      "inconsistency_id": "3f515ebe-9e52-48ea-b42f-09b2174c2276",
+      "evidence_verified": true
+    }
+  ],
+  "manuscript_flow": [
+    {
+      "order": 1,
+      "scores": {
+        "claim_support": 0.7239426374435425,
+        "methodology_fit": 0.7153368592262268,
+        "overall_coherence": 0.802432119846344,
+        "numeric_consistency": 0.7724239826202393,
+        "objectives_alignment": 0.7475777864456177
+      },
+      "section_a": "abstract",
+      "section_b": "introduction",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "abstract",
+            "sentence": "This manuscript examines whether guided reading improves comprehension in a small university course."
+          },
+          {
+            "section": "abstract",
+            "sentence": "The same students completed a reading task before and after the program."
+          },
+          {
+            "section": "abstract",
+            "sentence": "The report compares those two measurements and discusses how the observed change relates to the program."
+          },
+          {
+            "section": "introduction",
+            "sentence": "Reading comprehension is important for completing university coursework."
+          },
+          {
+            "section": "introduction",
+            "sentence": "Guided reading may help students interpret difficult passages by giving them a structured discussion."
+          },
+          {
+            "section": "introduction",
+            "sentence": "This manuscript follows one course and compares its reading task results across two points in time."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.7239426374435425,
+          "numeric": 0.7724239826202393,
+          "overall": 0.802432119846344,
+          "objectives": 0.7475777864456177,
+          "methodology": 0.7153368592262268
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.6973620057106018,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 2,
+      "scores": {
+        "claim_support": 0.7680088877677917,
+        "methodology_fit": 0.7386509776115417,
+        "overall_coherence": 0.8200330138206482,
+        "numeric_consistency": 0.8110597729682922,
+        "objectives_alignment": 0.7830298542976379
+      },
+      "section_a": "introduction",
+      "section_b": "related studies",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "introduction",
+            "sentence": "Reading comprehension is important for completing university coursework."
+          },
+          {
+            "section": "introduction",
+            "sentence": "Guided reading may help students interpret difficult passages by giving them a structured discussion."
+          },
+          {
+            "section": "introduction",
+            "sentence": "This manuscript follows one course and compares its reading task results across two points in time."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Earlier classroom reports describe guided reading as a way to help students discuss unfamiliar texts."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Those reports commonly compare performance before and after instruction."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Their results motivate this manuscript to examine the same connection in a university course."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Another group of classroom reports describes guided reading with short passages and teacher prompts."
+          },
+          {
+            "section": "related studies",
+            "sentence": "The reports note that some students improved while others did not."
+          },
+          {
+            "section": "related studies",
+            "sentence": "This second passage adds context to the same related studies section."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.7680088877677917,
+          "numeric": 0.8110597729682922,
+          "overall": 0.8200330138206482,
+          "objectives": 0.7830298542976379,
+          "methodology": 0.7386509776115417
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.6955319046974182,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 3,
+      "scores": {
+        "claim_support": 0.5189084410667419,
+        "methodology_fit": 0.5326336622238159,
+        "overall_coherence": 0.5900638103485107,
+        "numeric_consistency": 0.6118987202644348,
+        "objectives_alignment": 0.5382307171821594
+      },
+      "section_a": "related studies",
+      "section_b": "objectives",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "related studies",
+            "sentence": "Earlier classroom reports describe guided reading as a way to help students discuss unfamiliar texts."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Those reports commonly compare performance before and after instruction."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Their results motivate this manuscript to examine the same connection in a university course."
+          },
+          {
+            "section": "related studies",
+            "sentence": "Another group of classroom reports describes guided reading with short passages and teacher prompts."
+          },
+          {
+            "section": "related studies",
+            "sentence": "The reports note that some students improved while others did not."
+          },
+          {
+            "section": "related studies",
+            "sentence": "This second passage adds context to the same related studies section."
+          },
+          {
+            "section": "objectives",
+            "sentence": "The study asks whether guided reading improves reading comprehension in this course."
+          },
+          {
+            "section": "objectives",
+            "sentence": "It compares the same students before and after six weeks of guided reading."
+          },
+          {
+            "section": "objectives",
+            "sentence": "It also describes the size of the observed score change without making a claim about students outside the course."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.5189084410667419,
+          "numeric": 0.6118987202644348,
+          "overall": 0.5900638103485107,
+          "objectives": 0.5382307171821594,
+          "methodology": 0.5326336622238159
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.6138380765914917,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [
+          {
+            "delta": 0.0866,
+            "sentence": "Their results motivate this manuscript to examine the same connection in a university course."
+          },
+          {
+            "delta": 0.0463,
+            "sentence": "This second passage adds context to the same related studies section."
+          },
+          {
+            "delta": 0.0413,
+            "sentence": "The reports note that some students improved while others did not."
+          }
+        ],
+        "section_b": []
+      }
+    },
+    {
+      "order": 4,
+      "scores": {
+        "claim_support": 0.633524477481842,
+        "methodology_fit": 0.6217470169067383,
+        "overall_coherence": 0.68393874168396,
+        "numeric_consistency": 0.6980004906654358,
+        "objectives_alignment": 0.6447738409042358
+      },
+      "section_a": "objectives",
+      "section_b": "methodology",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "objectives",
+            "sentence": "The study asks whether guided reading improves reading comprehension in this course."
+          },
+          {
+            "section": "objectives",
+            "sentence": "It compares the same students before and after six weeks of guided reading."
+          },
+          {
+            "section": "objectives",
+            "sentence": "It also describes the size of the observed score change without making a claim about students outside the course."
+          },
+          {
+            "section": "methodology",
+            "sentence": "Thirty students completed the same reading comprehension task before and after six weeks of guided reading."
+          },
+          {
+            "section": "methodology",
+            "sentence": "The pre-test mean was 55 out of 100."
+          },
+          {
+            "section": "methodology",
+            "sentence": "The post-test mean was 78 out of 100."
+          },
+          {
+            "section": "methodology",
+            "sentence": "The paired difference was calculated for the thirty students who completed both tasks."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.633524477481842,
+          "numeric": 0.6980004906654358,
+          "overall": 0.68393874168396,
+          "objectives": 0.6447738409042358,
+          "methodology": 0.6217470169067383
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.6093876361846924,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 5,
+      "scores": {
+        "claim_support": 0.6838419437408447,
+        "methodology_fit": 0.681137204170227,
+        "overall_coherence": 0.7284447550773621,
+        "numeric_consistency": 0.7247857451438904,
+        "objectives_alignment": 0.6970694661140442
+      },
+      "section_a": "methodology",
+      "section_b": "results",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "methodology",
+            "sentence": "Thirty students completed the same reading comprehension task before and after six weeks of guided reading."
+          },
+          {
+            "section": "methodology",
+            "sentence": "The pre-test mean was 55 out of 100."
+          },
+          {
+            "section": "methodology",
+            "sentence": "The post-test mean was 78 out of 100."
+          },
+          {
+            "section": "methodology",
+            "sentence": "The paired difference was calculated for the thirty students who completed both tasks."
+          },
+          {
+            "section": "results",
+            "sentence": "Thirty students completed both reading tasks."
+          },
+          {
+            "section": "results",
+            "sentence": "The pre-test mean was 55 out of 100 and the post-test mean was 78 out of 100."
+          },
+          {
+            "section": "results",
+            "sentence": "The reported mean increase was 23 points."
+          },
+          {
+            "section": "results",
+            "sentence": "These values describe the students who completed the paired tasks in this course."
+          }
+        ],
+        "recommendations": [],
+        "coherence_scores": {
+          "claims": 0.6838419437408447,
+          "numeric": 0.7247857451438904,
+          "overall": 0.7284447550773621,
+          "objectives": 0.6970694661140442,
+          "methodology": 0.681137204170227
+        },
+        "highlighted_inconsistencies": []
+      },
+      "pair_weight": 0.600643515586853,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 6,
+      "scores": {
+        "claim_support": 0.6192755103111267,
+        "methodology_fit": 0.5964597463607788,
+        "overall_coherence": 0.6689625978469849,
+        "numeric_consistency": 0.6865858435630798,
+        "objectives_alignment": 0.6384912729263306
+      },
+      "section_a": "results",
+      "section_b": "discussion",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "results",
+            "sentence": "Thirty students completed both reading tasks."
+          },
+          {
+            "section": "results",
+            "sentence": "The pre-test mean was 55 out of 100 and the post-test mean was 78 out of 100."
+          },
+          {
+            "section": "results",
+            "sentence": "The reported mean increase was 23 points."
+          },
+          {
+            "section": "results",
+            "sentence": "These values describe the students who completed the paired tasks in this course."
+          },
+          {
+            "section": "discussion",
+            "sentence": "The paired reading scores fell by 23 points after guided reading."
+          },
+          {
+            "section": "discussion",
+            "sentence": "This decline suggests that the program reduced reading comprehension for the students in the course."
+          },
+          {
+            "section": "discussion",
+            "sentence": "The interpretation is limited to the observed group and the measurements described in Results."
+          }
+        ],
+        "recommendations": [
+          {
+            "section": "discussion",
+            "original_sentence": "The paired reading scores fell by 23 points after guided reading.",
+            "recommended_revision": "The paired reading scores increased by 23 points after guided reading."
+          },
+          {
+            "section": "discussion",
+            "original_sentence": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+            "recommended_revision": "This increase suggests that the program improved reading comprehension for the students in the course."
+          }
+        ],
+        "coherence_scores": {
+          "claims": 0.6192755103111267,
+          "numeric": 0.6865858435630798,
+          "overall": 0.6689625978469849,
+          "objectives": 0.6384912729263306,
+          "methodology": 0.5964597463607788
+        },
+        "highlighted_inconsistencies": [
+          {
+            "why": "Section A states that scores increased from a pre-test mean of 55 to a post-test mean of 78 (a rise of 23 points), whereas Section B states that scores fell by 23 points.",
+            "what": "Contradiction in numerical direction",
+            "quote": "The paired reading scores fell by 23 points after guided reading.",
+            "section": "discussion"
+          },
+          {
+            "why": "Section B interprets the change as a decline and reduction, which conflicts with the positive mean increase reported in Section A.",
+            "what": "Inconsistent claim based on results",
+            "quote": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+            "section": "discussion"
+          }
+        ]
+      },
+      "pair_weight": 0.6176314353942871,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    },
+    {
+      "order": 7,
+      "scores": {
+        "claim_support": 0.7237674593925476,
+        "methodology_fit": 0.7112181782722473,
+        "overall_coherence": 0.7967859506607056,
+        "numeric_consistency": 0.7669170498847961,
+        "objectives_alignment": 0.7377765774726868
+      },
+      "section_a": "discussion",
+      "section_b": "conclusion",
+      "explanation": {
+        "reference_list": [
+          {
+            "section": "discussion",
+            "sentence": "This decline suggests that the program reduced reading comprehension for the students in the course."
+          },
+          {
+            "section": "conclusion",
+            "sentence": "The manuscript concludes that guided reading improved reading comprehension in the course."
+          }
+        ],
+        "recommendations": [
+          {
+            "section": "conclusion",
+            "original_sentence": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+            "recommended_revision": "The manuscript concludes that guided reading reduced reading comprehension in the course."
+          }
+        ],
+        "coherence_scores": {
+          "claims": 0.7237674593925476,
+          "numeric": 0.7669170498847961,
+          "overall": 0.7967859506607056,
+          "objectives": 0.7377765774726868,
+          "methodology": 0.7112181782722473
+        },
+        "highlighted_inconsistencies": [
+          {
+            "why": "Section A states that the program reduced reading comprehension, whereas Section B states that the program improved it.",
+            "what": "Direction of findings contradicts the conclusion.",
+            "quote": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+            "section": "discussion"
+          },
+          {
+            "why": "Section B states that guided reading improved comprehension, while Section A states that scores fell and the program reduced comprehension.",
+            "what": "Direction of findings contradicts the discussion.",
+            "quote": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+            "section": "conclusion"
+          }
+        ]
+      },
+      "pair_weight": 0.6707242131233215,
+      "skipped_reason": null,
+      "culprit_sentences": {
+        "section_a": [],
+        "section_b": []
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "pair_order": 6,
+      "original_sentence": "The paired reading scores fell by 23 points after guided reading.",
+      "recommendation_id": "2677fd6f-07ae-46dc-81d9-a5884d11c8d9",
+      "recommendation_text": "The paired reading scores increased by 23 points after guided reading.",
+      "recommended_revision": "The paired reading scores increased by 23 points after guided reading.",
+      "recommendation_priority": "Medium"
+    },
+    {
+      "section_a": "results",
+      "section_b": "discussion",
+      "pair_order": 6,
+      "original_sentence": "This decline suggests that the program reduced reading comprehension for the students in the course.",
+      "recommendation_id": "2f9bf6fe-7d16-48b5-a5ad-080f06d8ee38",
+      "recommendation_text": "This increase suggests that the program improved reading comprehension for the students in the course.",
+      "recommended_revision": "This increase suggests that the program improved reading comprehension for the students in the course.",
+      "recommendation_priority": "Medium"
+    },
+    {
+      "section_a": "discussion",
+      "section_b": "conclusion",
+      "pair_order": 7,
+      "original_sentence": "The manuscript concludes that guided reading improved reading comprehension in the course.",
+      "recommendation_id": "864c90d5-df78-4620-be40-d9476129ba09",
+      "recommendation_text": "The manuscript concludes that guided reading reduced reading comprehension in the course.",
+      "recommended_revision": "The manuscript concludes that guided reading reduced reading comprehension in the course.",
+      "recommendation_priority": "Low"
+    }
+  ],
+  "score_breakdown": {
+    "band": "Solid",
+    "dimensions": {
+      "claim_support": 0.6673,
+      "methodology_fit": 0.6567,
+      "numeric_consistency": 0.7245,
+      "objectives_alignment": 0.6838
+    },
+    "overall_score": 73.12,
+    "citation_detail": {
+      "total_entries": 0,
+      "cross_match_score": 0,
+      "well_formed_ratio": 0,
+      "link_resolution_rate": 0
+    },
+    "citation_integrity_score": null,
+    "cross_chapter_coherence_score": 73.12
+  },
+  "ai_text_indicator": {
+    "disclaimer": "Advisory only, not an academic-integrity determination. This is a stylometric heuristic over surface features (sentence-length uniformity, lexical diversity, transition-phrase density, opening-word repetition, and sentence-embedding self-similarity) -- it cannot verify authorship and cannot detect real generative-model watermarks (e.g. Google SynthID), which are cryptographic signals embedded at the token-sampling level and are not recoverable from output text by any third party without the issuing model's own detection service. Formal academic prose already exhibits many of these same surface features, so well-written human capstone chapters can score in the 40-60 range; this indicator must never be used to block a submission or as a plagiarism/integrity charge on its own.",
+    "overall_score": 30.5,
+    "section_scores": {
+      "results": null,
+      "abstract": null,
+      "conclusion": null,
+      "discussion": null,
+      "objectives": null,
+      "methodology": null,
+      "introduction": null,
+      "related studies": 30.5
+    },
+    "flagged_sections": []
+  },
+  "citations_audited": 0,
+  "credits_remaining": 999,
+  "sections_analyzed": [
+    "abstract",
+    "introduction",
+    "related studies",
+    "objectives",
+    "methodology",
+    "results",
+    "discussion",
+    "conclusion"
+  ],
+  "inconsistencies_found": 4,
+  "notification_dispatched": true,
+  "overall_coherence_score": 73.12
+}
