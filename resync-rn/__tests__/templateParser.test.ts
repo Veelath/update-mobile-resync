@@ -26,12 +26,15 @@ describe('optional templates', () => {
       <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Study &amp; Scope</w:t></w:r></w:p>
       <w:p><w:r><w:t>CHAPTER 2 Methods</w:t></w:r></w:p>
       <w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>Sampling</w:t></w:r></w:p>
+      <w:p><w:r><w:t>3. Findings</w:t></w:r></w:p>
+      <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Evidence</w:t></w:r></w:p>
     </w:body></w:document>`;
     const zip = zipSync({'word/document.xml': strToU8(xml)});
     const bytes = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength);
     expect(parseDocxTemplate(bytes)).toEqual([
       {id: 'c1', number: '01', title: 'Introduction', headings: ['Study & Scope']},
       {id: 'c2', number: '02', title: 'CHAPTER 2 Methods', headings: ['Sampling']},
+      {id: 'c3', number: '03', title: '3. Findings', headings: ['Evidence']},
     ]);
     expect(() => parseTemplateFile('old.doc', bytes)).toThrow('save this template as .docx');
   });
