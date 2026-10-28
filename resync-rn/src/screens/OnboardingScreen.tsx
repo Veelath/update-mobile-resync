@@ -48,14 +48,14 @@ const PAGES: PageData[] = [
     eyebrow: 'ACTIONABLE ISSUE DETECTION',
     accent: '#2563EB',
     title: 'Find the gaps that are easy to miss.',
-    desc: 'Get precise, color-coded flags for logic gaps, contradictions, and repeated ideas, with the chapters involved clearly identified.',
+    desc: 'Weak links between consecutive sections are highlighted in your manuscript, with recommended revisions for each one.',
   },
   {
     id: '3',
     eyebrow: 'A CLEARER PATH TO REVISION',
     accent: '#10B981',
     title: 'Revise with evidence, not guesswork.',
-    desc: 'Review suggested fixes, verify accessible citations, and use your coherence score to focus your next editing session.',
+    desc: 'Review recommended revisions, see which citations are public or private, and use your coherence score to focus your next editing session.',
   },
 ];
 
