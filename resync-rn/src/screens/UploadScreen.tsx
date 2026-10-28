@@ -21,7 +21,8 @@ import { FileTile } from '../components/FileTile';
 import { Button } from '../components/Button';
 import { UnderlineTabs } from '../components/UnderlineTabs';
 import {ChapterTemplate} from '../data/templates';
-import {validateManuscriptFile} from '../services/templateParser';
+import {flattenTemplateToc, parseTemplateFile, validateManuscriptFile} from '../services/templateParser';
+import {loadSavedTemplate, saveTemplate} from '../services/templateStorage';
 import {executeScan} from '../services/scanRepository';
 import {validateGoogleDocsUrl} from '../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -63,10 +64,19 @@ export const UploadScreen: React.FC = () => {
   } | null>(null);
   const [addingToChapterId, setAddingToChapterId] = useState<string | null>(null);
   const [newHeadingText, setNewHeadingText] = useState('');
+  const [templateFileName, setTemplateFileName] = useState('');
+  const [templateError, setTemplateError] = useState('');
+  const [templateNotice, setTemplateNotice] = useState('');
+  const [hasSavedTemplate, setHasSavedTemplate] = useState(false);
 
   // Step 3 progress state
   const [progress, setProgress] = useState(0);
   const [scanError, setScanError] = useState('');
+
+  useEffect(() => {
+    if (step !== 2) return;
+    loadSavedTemplate().then(saved => setHasSavedTemplate(!!saved)).catch(() => setHasSavedTemplate(false));
+  }, [step]);
 
   // Hardware back handler
   useEffect(() => {
@@ -141,9 +151,11 @@ export const UploadScreen: React.FC = () => {
     setStep(3);
     try {
       const title = getDocName();
+      const templateToc = flattenTemplateToc(template);
       const result = await executeScan({
         manuscript_title: title,
         ...(intakeTab === 'file' && selectedFile ? {file: selectedFile} : {doc_url: gdocsUrl.trim()}),
+        ...(templateToc ? {template_toc: templateToc} : {}),
       });
       setStep(1);
       tabNav.navigate('Home');
@@ -159,6 +171,60 @@ export const UploadScreen: React.FC = () => {
 
   const handleResetTemplate = () => {
     setTemplate([]);
+    setTemplateFileName('');
+    setTemplateError('');
+    setTemplateNotice('');
+  };
+
+  const handlePickTemplate = async () => {
+    try {
+      const picker = require('@react-native-documents/picker');
+      const [file] = await picker.pick({mode: 'open', type: [picker.types.doc, picker.types.docx, picker.types.plainText]});
+      setTemplateError('');
+      setTemplateNotice('');
+      if (!file?.name || !/\.(docx?|txt)$/i.test(file.name)) throw new Error('Unsupported template file. Please upload a .docx or .txt file.');
+      if (/\.doc$/i.test(file.name)) throw new Error('Old .doc templates cannot be read. Please save this template as .docx and try again.');
+      // RN's BlobModule reads picked content:// URIs through ContentResolver for fetch blob responses.
+      const bytes = await (await fetch(file.uri)).arrayBuffer();
+      const parsed = parseTemplateFile(file.name, bytes);
+      if (!parsed.length) throw new Error('No headings found in the template. No template will be sent.');
+      setTemplate(parsed);
+      setTemplateFileName(file.name);
+      setOpenChapterId(parsed[0].id);
+    } catch (error: any) {
+      if (error?.code === 'DOCUMENT_PICKER_CANCELED') return;
+      setTemplate([]);
+      setTemplateFileName('');
+      setTemplateError(error instanceof Error ? error.message : 'Could not parse the template file. No template will be sent.');
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    try {
+      const save = async () => {
+        try {
+          await saveTemplate(template);
+          setHasSavedTemplate(true);
+          setTemplateNotice('Template saved.');
+        } catch { setTemplateError('Could not save the template.'); }
+      };
+      if (await loadSavedTemplate()) Alert.alert('Overwrite saved template?', '', [
+        {text: 'Cancel', style: 'cancel'}, {text: 'Overwrite', onPress: save},
+      ]);
+      else await save();
+    } catch { setTemplateError('Could not save the template.'); }
+  };
+
+  const handleLoadTemplate = async () => {
+    try {
+      const saved = await loadSavedTemplate();
+      if (!saved) return;
+      setTemplate(saved);
+      setTemplateFileName('');
+      setOpenChapterId(saved[0]?.id || '');
+      setTemplateError('');
+      setTemplateNotice('Saved template loaded.');
+    } catch { setTemplateError('Could not load the saved template.'); }
   };
 
   const handleRemoveHeading = (chId: string, hIndex: number) => {
@@ -284,6 +350,9 @@ export const UploadScreen: React.FC = () => {
               <Text style={styles.stepSub}>
                 ReSync detects section headings from your manuscript. A chapter template is optional in Step 2.
               </Text>
+              <Text style={styles.stepSub}>
+                Check logical links between consecutive sections, citations, and the AI-text indicator in one report.
+              </Text>
             </View>
 
             {/* Label: Manuscript */}
@@ -315,7 +384,7 @@ export const UploadScreen: React.FC = () => {
                       </View>
                       <Text style={styles.dropZoneTitle}>Choose a file</Text>
                       <Text style={styles.dropZoneMeta}>
-                        .docx or .pdf · max 25 MB
+                        .doc, .docx  max 25 MB
                       </Text>
                       {fileError && (
                         <Text style={styles.fileErrorText}>{fileError}</Text>
@@ -498,6 +567,25 @@ export const UploadScreen: React.FC = () => {
               </Text>
             </View>
 
+            <View style={styles.templateControls}>
+              <Button title="Attach template (.docx, .txt)" onPress={handlePickTemplate} />
+              <Text style={styles.stepSub}>.txt: one CHAPTER: or HEADING: item per line</Text>
+              {!!templateFileName && <Text style={styles.stepSub}>{templateFileName}</Text>}
+              <View style={styles.templateActions}>
+                <Pressable onPress={handleSaveTemplate} disabled={!totalHeadings} style={styles.resetBtn}>
+                  <Text style={styles.resetBtnText}>Save Template</Text>
+                </Pressable>
+                <Pressable onPress={handleLoadTemplate} disabled={!hasSavedTemplate} style={styles.resetBtn}>
+                  <Text style={styles.resetBtnText}>Use Saved Template</Text>
+                </Pressable>
+                <Pressable onPress={handleResetTemplate} style={styles.resetBtn}>
+                  <Text style={styles.resetBtnText}>Clear Template</Text>
+                </Pressable>
+              </View>
+              {!!templateNotice && <Text style={styles.successText}>{templateNotice}</Text>}
+              {!!templateError && <Text style={styles.fileErrorText}>{templateError}</Text>}
+            </View>
+
             {/* Stats Bar */}
             <View style={styles.statsBar}>
               <View style={styles.statsGroup}>
@@ -511,13 +599,6 @@ export const UploadScreen: React.FC = () => {
                 </View>
               </View>
 
-              <Pressable
-                onPress={handleResetTemplate}
-                style={styles.resetBtn}
-              >
-                <MaterialIcons name="restart-alt" size={16} color={colors.ink} />
-                <Text style={styles.resetBtnText}>Reset</Text>
-              </Pressable>
             </View>
 
             {/* Accordion List */}
@@ -660,7 +741,7 @@ export const UploadScreen: React.FC = () => {
             ]}
           >
             <Button
-              title="Run coherence scan"
+               title="Run Coherence Scan (1 Credit)"
               icon="manage-search"
               size="lg"
               onPress={handleRunScan}
@@ -1050,6 +1131,15 @@ const styles = StyleSheet.create({
   },
   statItem: {
     alignItems: 'flex-start',
+  },
+  templateControls: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  templateActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   statNum: {
     fontFamily: fonts.display[700],
