@@ -10,6 +10,7 @@ import {SAMPLE_MANUSCRIPT, SAMPLE_REPORT} from '../data/sampleReport';
 import {ScorePanel} from '../components/results/ScorePanel';
 import {ResultsTabs} from '../components/results/ResultsTabs';
 import {ManuscriptPreview} from '../components/results/ManuscriptPreview';
+import {ResyncMonogram} from '../components/ResyncMonogram';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 
@@ -67,6 +68,7 @@ export const ReportScreen: React.FC<Props> = ({navigation, route}) => {
       <Pressable accessibilityRole="button" onPress={sample ? () => navigation.goBack() : home} style={styles.headerButton}>
         <Text style={styles.headerAction}>{sample ? 'Back' : 'Home'}</Text>
       </Pressable>
+      <ResyncMonogram width={16} height={20} color={colors.primary} />
       <Text style={styles.headerBrand}>Resync</Text>
     </View>
     <ScrollView contentContainerStyle={styles.content}>
@@ -87,7 +89,7 @@ export const ReportScreen: React.FC<Props> = ({navigation, route}) => {
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: colors.soft},
-  header: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.line},
+  header: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.line},
   headerButton: {padding: 4, minWidth: 55}, headerAction: {fontFamily: fonts.sans[600], color: colors.primary, fontSize: 14},
   headerBrand: {fontFamily: fonts.sans[800], color: colors.ink, fontSize: 18},
   content: {padding: 16, paddingBottom: 40, gap: 16}, center: {alignItems: 'center', gap: 16, padding: 24},

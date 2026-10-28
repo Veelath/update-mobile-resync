@@ -15,6 +15,7 @@ import { colors, fonts } from '../theme/colors';
 import { TextField } from '../components/TextField';
 import { Button } from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
+import { ResyncMonogram } from '../components/ResyncMonogram';
 import {supabase} from '../services/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -110,7 +111,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
         <View style={styles.brandRow}>
           <View style={styles.brandTile}>
-            <Text style={styles.brandR}>R</Text>
+            <ResyncMonogram width={14} height={18} color="#FFFFFF" />
           </View>
           <Text style={styles.brandTitle}>Resync</Text>
         </View>
@@ -283,12 +284,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  brandR: {
-    fontFamily: fonts.sans[800],
-    fontSize: 16,
-    color: colors.white,
-    lineHeight: 18,
   },
   brandTitle: {
     fontFamily: fonts.sans[700],

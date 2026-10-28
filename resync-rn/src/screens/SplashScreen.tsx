@@ -69,10 +69,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         {/* Stylized S-monogram */}
         <ResyncMonogram width={68} height={84} color="#0A2AB8" />
 
-        {/* Re / Sync Stacked Typography */}
         <View style={styles.textStack}>
-          <Text style={styles.reText}>Re</Text>
-          <Text style={styles.syncText}>Sync</Text>
+          <Text style={styles.reText}>Resync</Text>
         </View>
       </Animated.View>
     </View>
@@ -97,13 +95,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 44,
-    color: '#0A2AB8',
-    lineHeight: 44,
-    letterSpacing: -0.8,
-  },
-  syncText: {
     fontFamily: fonts.sans[800],
     fontSize: 44,
     color: '#0A2AB8',

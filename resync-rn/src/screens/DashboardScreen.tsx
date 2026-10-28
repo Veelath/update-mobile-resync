@@ -44,25 +44,25 @@ export const DashboardScreen: React.FC = () => {
     {
       step: '01',
       icon: 'upload',
-      title: 'Upload manuscript',
-      desc: 'Upload your .docx file or paste a Google Docs share link.',
+      title: 'Upload Manuscript',
+      desc: 'Upload your Word file or paste a Google Docs share link.',
     },
     {
       step: '02',
       icon: 'dashboard-customize',
-      title: 'Set type & template',
-      desc: 'Choose Quantitative or Qualitative, then edit our standard template.',
+      title: 'Review Sections',
+      desc: 'Upload a manuscript and review its detected sections.',
     },
     {
       step: '03',
       icon: 'schedule',
-      title: 'Coherence scan',
-      desc: 'AI cross-checks logic gaps, contradictions, redundancies and dead citations.',
+      title: 'Coherence Scan',
+      desc: 'AI checks consecutive section links, citations, and the AI-text indicator.',
     },
     {
       step: '04',
       icon: 'download',
-      title: 'Export report',
+      title: 'Export Report',
       desc: 'Download your annotated report and fix recommendations as a PDF.',
     },
   ];
@@ -72,62 +72,62 @@ export const DashboardScreen: React.FC = () => {
       icon: 'speed',
       color: '#0A2AB8',
       bg: '#EEF2FF',
-      title: 'Coherence score',
-      desc: '0–100 score with logic, consistency and citation sub-scores.',
+      title: 'Coherence Score',
+      desc: 'A 0–100 coherence score for logical links between consecutive manuscript sections.',
     },
     {
       icon: 'subject',
       color: '#2563EB',
       bg: '#EFF6FF',
-      title: 'Annotated manuscript',
-      desc: 'Every flagged passage highlighted inline by type.',
+      title: 'Annotated Manuscript',
+      desc: 'Manuscript text with verified passages highlighted inline for review.',
     },
     {
       icon: 'task-alt',
       color: '#059669',
       bg: '#ECFDF5',
-      title: 'Fix recommendations',
-      desc: 'Concrete rewrites for each flagged issue.',
+      title: 'Fix Recommendations',
+      desc: 'Suggested revisions for flagged section links, ready to review.',
     },
     {
       icon: 'link',
       color: '#D97706',
       bg: '#FFFBEB',
-      title: 'Verified references',
-      desc: 'Live or dead status for every URL and DOI.',
+      title: 'Verified Reference List',
+      desc: 'Public or private access status for every cited URL and DOI in your bibliography.',
     },
   ];
 
   const guidanceItems = [
     {
       icon: 'description',
-      title: 'Digital manuscripts',
+      title: 'Digital Manuscripts',
       sub: 'DOCX, PDF, Google Docs',
     },
     {
       icon: 'menu-book',
-      title: 'Standard structure',
-      sub: 'Chapters 1–5 & IMRaD',
+      title: 'Section Flow',
+      sub: 'Consecutive section links',
     },
     {
       icon: 'view-agenda',
-      title: 'Single-column flow',
+      title: 'Single-Column Flow',
       sub: 'Sequential reading order',
     },
     {
       icon: 'notes',
-      title: 'Direct prose',
-      sub: 'Clear claims and conclusions',
+      title: 'Direct Prose',
+      sub: 'Claims and conclusions',
     },
     {
       icon: 'link',
-      title: 'Open references',
-      sub: 'Public citations and DOIs',
+      title: 'Open References',
+      sub: 'Citations and DOI checks',
     },
     {
-      icon: 'science',
-      title: 'Method focus',
-      sub: 'Qualitative or quantitative fit',
+      icon: 'smart-toy',
+      title: 'AI-Text Indicator',
+      sub: 'Review the text signal',
     },
   ];
 
@@ -202,8 +202,7 @@ export const DashboardScreen: React.FC = () => {
 
           {/* Body */}
           <Text style={styles.heroBody}>
-            Detect logic gaps, cross-chapter contradictions, terminology drift and
-            inaccessible citations, all in under 2 minutes.
+            Check logical links between consecutive sections, citations, and the AI-text indicator in one report.
           </Text>
 
           {/* CTA row */}
@@ -216,11 +215,11 @@ export const DashboardScreen: React.FC = () => {
               ]}
             >
               <MaterialIcons name="upload" size={19} color={colors.ink} />
-              <Text style={styles.ctaButtonText}>Start a scan</Text>
+              <Text style={styles.ctaButtonText}>Start a Scan</Text>
             </Pressable>
 
             <Pressable onPress={() => tabNav.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Report', {sample: true})} style={styles.previewLink}>
-              <Text style={styles.previewText}>View sample report</Text>
+              <Text style={styles.previewText}>Preview sample</Text>
             </Pressable>
 
           </View>
@@ -232,20 +231,19 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <View style={[styles.metaDot, { backgroundColor: '#34D399' }]} />
-              <Text style={styles.metaText}>AI multi-model pipeline</Text>
+              <Text style={styles.metaText}>Consecutive section coherence</Text>
             </View>
             <View style={styles.metaItem}>
               <View style={[styles.metaDot, { backgroundColor: 'rgba(255,255,255,0.45)' }]} />
-              <Text style={styles.metaText}>Quantitative & qualitative</Text>
+              <Text style={styles.metaText}>Citation accessibility checks</Text>
             </View>
             <View style={styles.metaItem}>
               <View style={[styles.metaDot, { backgroundColor: 'rgba(255,255,255,0.45)' }]} />
-              <Text style={styles.metaText}>Citation verifier</Text>
+              <Text style={styles.metaText}>AI-text indicator</Text>
             </View>
             <View style={styles.metaItem}>
-              <MaterialIcons name="schedule" size={14} color={colors.white} />
               <Text style={[styles.metaText, { fontFamily: fonts.sans[600] }]}>
-                ~2 min average
+                Word (.doc/.docx) & Google Docs
               </Text>
             </View>
           </View>
@@ -256,7 +254,7 @@ export const DashboardScreen: React.FC = () => {
           {/* SECTION 1: PROCESS */}
           <View style={styles.section}>
             <Text style={styles.eyebrowMono}>PROCESS</Text>
-            <Text style={styles.h2}>How it works</Text>
+            <Text style={styles.h2}>How It Works</Text>
             <Text style={styles.sectionSubtitle}>
               Four simple steps from manuscript to coherence report.
             </Text>
@@ -294,7 +292,7 @@ export const DashboardScreen: React.FC = () => {
           {/* SECTION 2: OUTPUTS */}
           <View style={styles.section}>
             <Text style={styles.eyebrowMono}>OUTPUTS</Text>
-            <Text style={styles.h2}>What you get</Text>
+            <Text style={styles.h2}>What You Get</Text>
             <Text style={styles.sectionSubtitle}>
               Four deliverables, every scan, automatically.
             </Text>
@@ -322,9 +320,9 @@ export const DashboardScreen: React.FC = () => {
           {/* SECTION 3: GUIDANCE */}
           <View style={styles.section}>
             <Text style={styles.eyebrowMono}>GUIDANCE</Text>
-            <Text style={styles.h2}>Best results with</Text>
+            <Text style={styles.h2}>Best Results With</Text>
             <Text style={styles.sectionSubtitle}>
-              Resync is most accurate when your manuscript follows these standards.
+              Clear sections help ReSync assess how each part of your manuscript connects to the next.
             </Text>
 
             {/* 2-column Grid */}
