@@ -7,6 +7,7 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  Alert,
   BackHandler,
   StatusBar,
 } from 'react-native';
@@ -19,11 +20,8 @@ import { colors, fonts } from '../theme/colors';
 import { FileTile } from '../components/FileTile';
 import { Button } from '../components/Button';
 import { UnderlineTabs } from '../components/UnderlineTabs';
-import {
-  QUANTITATIVE_TEMPLATE,
-  QUALITATIVE_TEMPLATE,
-  ChapterTemplate,
-} from '../data/templates';
+import {ChapterTemplate} from '../data/templates';
+import {validateManuscriptFile} from '../services/templateParser';
 import {executeScan} from '../services/scanRepository';
 import {validateGoogleDocsUrl} from '../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,14 +34,13 @@ export const UploadScreen: React.FC = () => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1 states
-  const [scope, setScope] = useState<'Quantitative' | 'Qualitative'>('Quantitative');
   const [intakeTab, setIntakeTab] = useState<'file' | 'gdocs'>('file');
 
   // File state
   const [selectedFile, setSelectedFile] = useState<{
     name: string;
     size: string;
-    extension: 'DOCX' | 'PDF';
+    extension: 'DOCX';
     uri: string;
     type: string;
   } | null>(null);
@@ -57,10 +54,8 @@ export const UploadScreen: React.FC = () => {
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Step 2 Template state
-  const [template, setTemplate] = useState<ChapterTemplate[]>(
-    JSON.parse(JSON.stringify(QUANTITATIVE_TEMPLATE))
-  );
-  const [openChapterId, setOpenChapterId] = useState<string>('c1');
+  const [template, setTemplate] = useState<ChapterTemplate[]>([]);
+  const [openChapterId, setOpenChapterId] = useState<string>('');
   const [editingHeading, setEditingHeading] = useState<{
     chapterId: string;
     index: number;
@@ -72,15 +67,6 @@ export const UploadScreen: React.FC = () => {
   // Step 3 progress state
   const [progress, setProgress] = useState(0);
   const [scanError, setScanError] = useState('');
-
-  // Reload template when scope changes
-  useEffect(() => {
-    if (scope === 'Quantitative') {
-      setTemplate(JSON.parse(JSON.stringify(QUANTITATIVE_TEMPLATE)));
-    } else {
-      setTemplate(JSON.parse(JSON.stringify(QUALITATIVE_TEMPLATE)));
-    }
-  }, [scope]);
 
   // Hardware back handler
   useEffect(() => {
@@ -123,23 +109,24 @@ export const UploadScreen: React.FC = () => {
       const picker = require('@react-native-documents/picker');
       const res = await picker.pick({
         mode: 'open',
-        type: [picker.types.pdf, picker.types.docx, 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        type: [picker.types.doc, picker.types.docx],
       });
       if (res && res[0]) {
         const file = res[0];
-        const sizeMb = (file.size || 0) / (1024 * 1024);
-        if (sizeMb > 25) {
-          setFileError('File exceeds 25 MB limit.');
+        const error = validateManuscriptFile(file);
+        if (error) {
+          setSelectedFile(null);
+          setFileError(error);
           return;
         }
+        const sizeMb = (file.size || 0) / (1024 * 1024);
         setFileError(null);
-        const ext = file.name?.toLowerCase().endsWith('.pdf') ? 'PDF' : 'DOCX';
         setSelectedFile({
-          name: file.name || 'manuscript.docx',
+          name: file.name,
           size: `${sizeMb.toFixed(1)} MB`,
-          extension: ext,
+          extension: 'DOCX',
           uri: file.uri,
-          type: file.type || (ext === 'PDF' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+          type: file.type || (file.name.toLowerCase().endsWith('.doc') ? picker.types.doc : picker.types.docx),
         });
       }
     } catch (e: any) {
@@ -151,17 +138,13 @@ export const UploadScreen: React.FC = () => {
 
   const handleRunScan = async () => {
     setScanError('');
-    setProgress(0);
     setStep(3);
     try {
       const title = getDocName();
       const result = await executeScan({
         manuscript_title: title,
         ...(intakeTab === 'file' && selectedFile ? {file: selectedFile} : {doc_url: gdocsUrl.trim()}),
-        template_toc: template.flatMap(chapter => [chapter.title, ...chapter.headings]),
-        onProgress: elapsed => setProgress(Math.floor(elapsed / 1000)),
       });
-      setProgress(100);
       setStep(1);
       tabNav.navigate('Home');
       rootNav.push('Report', {result, manuscriptTitle: title});
@@ -175,11 +158,7 @@ export const UploadScreen: React.FC = () => {
   const totalHeadings = template.reduce((acc, c) => acc + c.headings.length, 0);
 
   const handleResetTemplate = () => {
-    if (scope === 'Quantitative') {
-      setTemplate(JSON.parse(JSON.stringify(QUANTITATIVE_TEMPLATE)));
-    } else {
-      setTemplate(JSON.parse(JSON.stringify(QUALITATIVE_TEMPLATE)));
-    }
+    setTemplate([]);
   };
 
   const handleRemoveHeading = (chId: string, hIndex: number) => {
@@ -301,107 +280,18 @@ export const UploadScreen: React.FC = () => {
               <View style={styles.stepHeadTagRow}>
                 <Text style={styles.stepHeadTag}>STEP 1 · MANUSCRIPT INTAKE</Text>
               </View>
-              <Text style={styles.stepTitle}>Upload your manuscript</Text>
+              <Text style={styles.stepTitle}>Upload manuscript</Text>
               <Text style={styles.stepSub}>
-                Pick your research type so Resync loads the right chapter template. You
-                can edit it next.
+                ReSync detects section headings from your manuscript. A chapter template is optional in Step 2.
               </Text>
-            </View>
-
-            {/* Label: Research type */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.fieldLabel}>RESEARCH TYPE</Text>
-              <View style={styles.scopeRow}>
-                {/* Quantitative Card */}
-                <Pressable
-                  onPress={() => setScope('Quantitative')}
-                  style={[
-                    styles.scopeCard,
-                    scope === 'Quantitative'
-                      ? styles.scopeSelected
-                      : styles.scopeUnselected,
-                  ]}
-                >
-                  <View style={styles.scopeTopRow}>
-                    <View
-                      style={[
-                        styles.scopeIconTile,
-                        {
-                          backgroundColor:
-                            scope === 'Quantitative' ? colors.white : colors.soft,
-                        },
-                      ]}
-                    >
-                      <MaterialIcons
-                        name="bar-chart"
-                        size={19}
-                        color={
-                          scope === 'Quantitative' ? colors.primary : colors.muted
-                        }
-                      />
-                    </View>
-                    <View
-                      style={[
-                        styles.radio,
-                        scope === 'Quantitative'
-                          ? styles.radioActive
-                          : styles.radioInactive,
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.scopeTitle}>Quantitative</Text>
-                  <Text style={styles.scopeDesc}>Numbers, hypotheses, statistics</Text>
-                </Pressable>
-
-                {/* Qualitative Card */}
-                <Pressable
-                  onPress={() => setScope('Qualitative')}
-                  style={[
-                    styles.scopeCard,
-                    scope === 'Qualitative'
-                      ? styles.scopeSelected
-                      : styles.scopeUnselected,
-                  ]}
-                >
-                  <View style={styles.scopeTopRow}>
-                    <View
-                      style={[
-                        styles.scopeIconTile,
-                        {
-                          backgroundColor:
-                            scope === 'Qualitative' ? colors.white : colors.soft,
-                        },
-                      ]}
-                    >
-                      <MaterialIcons
-                        name="forum"
-                        size={19}
-                        color={
-                          scope === 'Qualitative' ? colors.primary : colors.muted
-                        }
-                      />
-                    </View>
-                    <View
-                      style={[
-                        styles.radio,
-                        scope === 'Qualitative'
-                          ? styles.radioActive
-                          : styles.radioInactive,
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.scopeTitle}>Qualitative</Text>
-                  <Text style={styles.scopeDesc}>Themes, interviews, narratives</Text>
-                </Pressable>
-              </View>
             </View>
 
             {/* Label: Manuscript */}
             <View style={styles.sectionBlock}>
-              <Text style={styles.fieldLabel}>MANUSCRIPT</Text>
+              <Text style={styles.fieldLabel}>MANUSCRIPT SOURCE</Text>
               <UnderlineTabs
                 items={[
-                  { id: 'file', label: 'Upload file', icon: 'upload-file' },
+                  { id: 'file', label: 'Upload Word file', icon: 'upload-file' },
                   { id: 'gdocs', label: 'Google Docs', icon: 'link' },
                 ]}
                 selectedId={intakeTab}
@@ -601,15 +491,10 @@ export const UploadScreen: React.FC = () => {
             <View style={styles.stepHead}>
               <View style={styles.stepHeadTagRow}>
                 <Text style={styles.stepHeadTag}>STEP 2 · CHAPTER TEMPLATE</Text>
-                <View style={styles.scopeBadge}>
-                  <Text style={styles.scopeBadgeText}>{scope}</Text>
-                </View>
               </View>
-              <Text style={styles.stepTitle}>Check your chapter headings</Text>
+              <Text style={styles.stepTitle}>Optional chapter template</Text>
               <Text style={styles.stepSub}>
-                Resync matches your manuscript against this outline. Tap a heading
-                to rename it, or add and remove headings to fit your school's
-                format.
+                Skip this step to let ReSync detect sections. Attach or load a template only if your school requires specific headings.
               </Text>
             </View>
 
