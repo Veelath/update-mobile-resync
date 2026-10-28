@@ -22,11 +22,19 @@ import { colors, fonts, gradients } from '../theme/colors';
 import {supabase} from '../services/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResyncMonogram } from '../components/ResyncMonogram';
+import { NotificationBell } from '../components/NotificationBell';
+import { takePendingScanId } from '../services/notifications';
 
 export const DashboardScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const insets = useSafeAreaInsets();
   const [displayName, setDisplayName] = useState('');
+
+  // A notification tapped before sign-in finished opens its report once the Dashboard is reached.
+  useEffect(() => {
+    const scanId = takePendingScanId();
+    if (scanId) tabNav.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Report', {scanId});
+  }, [tabNav]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({data}) => setDisplayName(data.user?.user_metadata?.full_name || data.user?.email || ''));
@@ -172,10 +180,7 @@ export const DashboardScreen: React.FC = () => {
 
             <View style={styles.headerRightGroup}>
               {/* Bell icon */}
-              <View style={styles.bellWrapper}>
-                <MaterialIcons name="notifications-none" size={22} color={colors.white} />
-                <View style={styles.bellDot} />
-              </View>
+              <NotificationBell />
 
               {/* Avatar */}
               <View style={styles.avatar}>
@@ -409,21 +414,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans[600],
     fontSize: 12,
     color: colors.white,
-  },
-  bellWrapper: {
-    position: 'relative',
-    padding: 2,
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.pink,
-    borderWidth: 1.5,
-    borderColor: '#0A1E8C',
   },
   avatar: {
     width: 32,

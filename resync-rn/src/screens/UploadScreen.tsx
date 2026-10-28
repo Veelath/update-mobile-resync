@@ -22,6 +22,7 @@ import { Button } from '../components/Button';
 import { UnderlineTabs } from '../components/UnderlineTabs';
 import {ChapterTemplate} from '../data/templates';
 import {flattenTemplateToc, parseTemplateFile, validateManuscriptFile} from '../services/templateParser';
+import {trackScan} from '../services/notifications';
 import {loadSavedTemplate, saveTemplate} from '../services/templateStorage';
 import {executeScan} from '../services/scanRepository';
 import {validateGoogleDocsUrl} from '../services/api';
@@ -164,11 +165,11 @@ export const UploadScreen: React.FC = () => {
     try {
       const title = getDocName();
       const templateToc = flattenTemplateToc(template);
-      const result = await executeScan({
+      const result = await trackScan(title, () => executeScan({
         manuscript_title: title,
         ...(intakeTab === 'file' && selectedFile ? {file: selectedFile} : {doc_url: gdocsUrl.trim()}),
         ...(templateToc ? {template_toc: templateToc} : {}),
-      });
+      }));
       setStep(1);
       tabNav.navigate('Home');
       rootNav.push('Report', {result, manuscriptTitle: title});
