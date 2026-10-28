@@ -1,37 +1,8 @@
 import {config} from '../config';
 import {supabase} from './supabase';
+import {adaptScanResult, type ScanResult} from './v7Result';
 
-export interface ScanResponse {
-  status: string;
-  analysis_run_id: string;
-  user_id: string;
-  manuscript_id: string;
-  doc_url: string;
-  overall_coherence_score: number;
-  sections_analyzed: string[];
-  missing_sections: string[];
-  inconsistencies: {
-    inconsistency_id: string;
-    section_a: string;
-    section_b: string;
-    coherence_score: number | null;
-    explanation_what: string;
-    explanation_why: string;
-    suggested_fix: string;
-    finding_status: string;
-  }[];
-  citations: {
-    citation_raw_reference_text: string;
-    citation_is_accessible: boolean;
-    citation_status: string;
-    citation_primary_link?: string | null;
-  }[];
-  score_breakdown?: {
-    overall_score: number;
-    band: string;
-    v6_dimensions?: Record<string, Record<string, number | null>> | null;
-  } | null;
-}
+export type ScanResponse = ScanResult;
 
 export interface ScanRunRequest {
   manuscript_title: string;
@@ -60,7 +31,45 @@ async function checked(response: Response): Promise<any> {
   return body;
 }
 
-export async function runScanApi(req: ScanRunRequest): Promise<ScanResponse> {
+async function scanHeaders(): Promise<Record<string, string>> {
+  const {data: {session}} = await supabase.auth.getSession();
+  if (!session) throw new Error('Your session has expired. Please sign in again.');
+  return {Authorization: `Bearer ${session.access_token}`};
+}
+
+export async function getScanResult(id: string): Promise<ScanResult> {
+  const job = await checked(await fetch(`${config.API_BASE_URL}/api/scans/${encodeURIComponent(id)}`, {headers: await scanHeaders()}));
+  if (job.status === 'failed') throw new Error(job.error || `Scan ${id} failed.`);
+  if (job.status !== 'completed' || !job.result) throw new Error(`Scan ${id} is not complete.`);
+  return adaptScanResult(job.result);
+}
+
+export type ManuscriptText = {available: true; text: string; fetched_at?: string} |
+  {available: false; reason: 'non_gdocs' | 'private' | 'unavailable'};
+
+export async function getManuscriptText(id: string): Promise<ManuscriptText> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    try {
+      response = await fetch(`${config.API_BASE_URL}/api/scans/${encodeURIComponent(id)}/manuscript`,
+        {headers: await scanHeaders(), signal: controller.signal});
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (response.status === 400) return {available: false, reason: 'non_gdocs'};
+    if (response.status === 401 || response.status === 403) return {available: false, reason: 'private'};
+    if (!response.ok) return {available: false, reason: 'unavailable'};
+    const body = await response.json();
+    if (body.available && typeof body.text === 'string') return {available: true, text: body.text, fetched_at: body.fetched_at};
+    return {available: false, reason: body.reason === 'private' ? 'private' : 'unavailable'};
+  } catch {
+    return {available: false, reason: 'unavailable'};
+  }
+}
+
+export async function runScanApi(req: ScanRunRequest): Promise<ScanResult> {
   if (!req.file && !validateGoogleDocsUrl(req.doc_url || '')) throw new Error('Enter a valid Google Docs document URL.');
   const {data: {session}} = await supabase.auth.getSession();
   if (!session) throw new Error('Your session has expired. Please sign in again.');
@@ -100,7 +109,7 @@ export async function runScanApi(req: ScanRunRequest): Promise<ScanResponse> {
     if (job.status === 'failed') throw new Error(job.error || `Scan ${id} failed.`);
     if (job.status === 'completed') {
       if (!job.result) throw new Error(`Scan ${id} completed without a result.`);
-      return job.result as ScanResponse;
+      return adaptScanResult(job.result);
     }
   }
   throw new Error(`Scan timed out. It may still be running on the server (${id}).`);

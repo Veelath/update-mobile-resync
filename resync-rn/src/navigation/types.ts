@@ -13,7 +13,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: { mode?: 'signup' | 'login' } | undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
-  Report: {scanId?: string; result?: ScanResult; sample?: boolean; manuscriptTitle?: string} | undefined;
+  Report: {scanId?: string; result?: ScanResult; sample?: boolean; heavy?: boolean; manuscriptTitle?: string} | undefined;
   Compare: { scanIds: string[] };
   Settings: undefined;
 };
