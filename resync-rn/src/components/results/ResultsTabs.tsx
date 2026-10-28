@@ -4,8 +4,15 @@ import {colors, fonts} from '../../theme/colors';
 import {citationAccess, CITATION_LABELS, plainText, type CitationReport, type V7ScanResponse} from '../../services/v7Result';
 
 const citationText = (value?: string | null) => (value || '').replace(/<\/?[a-z][^>]*>/gi, '')
-  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
-const contains = (reference: string, value?: string | number | null) => value != null && reference.toLowerCase().includes(String(value).toLowerCase());
+  .replace(/&#(x[0-9a-f]+|\d+);/gi, (entity, code: string) => {
+    const point = parseInt(code.replace(/^x/i, ''), /^x/i.test(code) ? 16 : 10);
+    return point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+  })
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&(?:apos|#39);/g, "'").replace(/&nbsp;/g, ' ').trim();
+const contains = (reference: string, value?: string | number | null) => {
+  const normalize = (text: string) => text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  return value != null && normalize(reference).includes(normalize(String(value)));
+};
 
 function CitationRow({citation, index}: {citation: CitationReport; index: number}) {
   const reference = citationText(citation.citation_raw_reference_text);

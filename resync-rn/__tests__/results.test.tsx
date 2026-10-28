@@ -43,6 +43,18 @@ it('omits a null original sentence and starts on Recommendations', () => {
   expect(output).not.toContain('Accessible (Public)');
 });
 
+it('shows citation access and decoded metadata on the Citations tab', () => {
+  const report = {...SAMPLE_REPORT, citations: [{...SAMPLE_REPORT.citations[0],
+    citation_raw_reference_text: 'Reference without title', citation_crossref_title: 'Reading &#38; Learning'}]};
+  const tree = renderer.create(<ResultsTabs result={report} />);
+  const citationsTab = tree.root.findAll(node => node.props.accessibilityRole === 'tab' && node.props.onPress)
+    .find(node => node.findAllByType('Text' as any).some(text => String(text.props.children).startsWith('Citations')));
+  act(() => citationsTab!.props.onPress());
+  const output = words(tree);
+  expect(output).toContain('Accessible (Public)');
+  expect(output).toContain('Reading & Learning');
+});
+
 it('shows only the old-result notice for legacy scans', () => {
   const tree = renderer.create(<ReportScreen navigation={{navigate: jest.fn(), goBack: jest.fn()} as any}
     route={{params: {result: {result_version: 'v6'}}} as any} />);
