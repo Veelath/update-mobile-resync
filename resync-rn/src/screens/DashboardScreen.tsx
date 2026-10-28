@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
   StatusBar,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -14,7 +15,7 @@ const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const Defs = SvgModule.Defs;
 const Pattern = SvgModule.Pattern;
 const Rect = SvgModule.Rect;
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainTabParamList, RootStackParamList } from '../navigation/types';
@@ -24,11 +25,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResyncMonogram } from '../components/ResyncMonogram';
 import { NotificationBell } from '../components/NotificationBell';
 import { takePendingScanId } from '../services/notifications';
+import { loadAvatar } from '../services/profile';
 
 export const DashboardScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const insets = useSafeAreaInsets();
   const [displayName, setDisplayName] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
   // A notification tapped before sign-in finished opens its report once the Dashboard is reached.
   useEffect(() => {
@@ -39,6 +42,10 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     supabase.auth.getUser().then(({data}) => setDisplayName(data.user?.user_metadata?.full_name || data.user?.email || ''));
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    supabase.auth.getUser().then(async ({data}) => setAvatarUri(await loadAvatar(data.user?.id)));
+  }, []));
 
   const timelineSteps = [
     {
@@ -183,9 +190,10 @@ export const DashboardScreen: React.FC = () => {
               <NotificationBell />
 
               {/* Avatar */}
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{displayName.slice(0, 2).toUpperCase()}</Text>
-              </View>
+              <Pressable onPress={() => tabNav.navigate('Profile')} style={styles.avatar} accessibilityRole="button" accessibilityLabel="Academic Profile">
+                {avatarUri ? <Image source={{uri: avatarUri}} style={styles.avatarImage} />
+                  : <Text style={styles.avatarText}>{displayName.slice(0, 2).toUpperCase()}</Text>}
+              </Pressable>
             </View>
           </View>
 
@@ -420,6 +428,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
   },
   avatarText: {
     fontFamily: fonts.sans[800],
