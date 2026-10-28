@@ -770,16 +770,19 @@ export const UploadScreen: React.FC = () => {
             <Text style={styles.stepTitle}>Analyzing your manuscript</Text>
             <Text style={styles.stepSub}>Running 4 checks across consecutive sections</Text>
             {[
-              'Reading your manuscript',
-              'Checking section flow',
-              'Analyzing logical coherence',
-              'Verifying citation access',
-              'Finalizing your report',
-            ].map((label, index) => (
+              ['Reading your manuscript', 'Extracting chapters, sections and references'],
+              ['Checking section flow', 'Comparing each section with the next'],
+              ['Analyzing logical coherence', 'Reviewing connections between sections'],
+              ['Verifying citation access', 'Checking which sources are public or private'],
+              ['Finalizing your report', 'Summarizing section links and citations'],
+            ].map(([label, detail], index) => (
               <View key={label} style={styles.checkItemRow}>
-                <Text style={[styles.checkItemText, {color: index === activeScanStep ? colors.ink : colors.hint}]}>
-                  {label}
-                </Text>
+                <View style={{flex: 1}}>
+                  <Text style={[styles.checkItemText, {color: index === activeScanStep ? colors.ink : colors.hint}]}>
+                    {label}
+                  </Text>
+                  {index === activeScanStep && <Text style={styles.stepSub}>{detail}</Text>}
+                </View>
                 {index === activeScanStep ? <ActivityIndicator size="small" color={colors.primary} /> :
                   index < activeScanStep ? <MaterialIcons name="check" size={18} color={colors.primary} /> : null}
               </View>
