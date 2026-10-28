@@ -6,16 +6,16 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {RootStackParamList} from '../navigation/types';
 import {ScoreRing} from '../components/ScoreRing';
 import {colors, fonts} from '../theme/colors';
+import {isV7Result, OLD_RESULT_NOTICE} from '../services/v7Result';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 
 export const ReportScreen: React.FC<Props> = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
-  const result = route.params?.result;
+  const rawResult = route.params?.result;
+  const result = isV7Result(rawResult) ? rawResult : undefined;
   const findings = result?.inconsistencies || [];
-  const issues = findings.filter(item => item.finding_status !== 'key_strength');
-  const strengths = findings.filter(item => item.finding_status === 'key_strength');
-  const dimensions = Object.entries(result?.score_breakdown?.v6_dimensions || {});
+  const issues = findings;
 
   return (
     <View style={[styles.container, {paddingTop: insets.top}]}>
@@ -30,13 +30,13 @@ export const ReportScreen: React.FC<Props> = ({navigation, route}) => {
         </View>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
-        {!result ? <Text style={styles.body}>This report is unavailable. Start a new scan to view a live result.</Text> : <>
+        {!result ? <Text style={styles.body}>{rawResult ? OLD_RESULT_NOTICE : 'This report is unavailable. Start a new scan to view a live result.'}</Text> : <>
           <View style={styles.scoreCard}>
             <ScoreRing score={Math.round(result.overall_coherence_score)} />
             <View style={styles.scoreInfo}>
               <Text style={styles.eyebrow}>COHERENCE SCORE</Text>
               <Text style={styles.band}>{result.score_breakdown?.band || 'Unrated'}</Text>
-              <Text style={styles.body}>{issues.length} issues · {strengths.length} key strengths</Text>
+              <Text style={styles.body}>{issues.length} issues</Text>
             </View>
           </View>
           {!!issues.length && <View style={styles.section}>
@@ -48,31 +48,12 @@ export const ReportScreen: React.FC<Props> = ({navigation, route}) => {
               {!!item.suggested_fix && <Text style={styles.fix}>Suggested fix: {item.suggested_fix}</Text>}
             </View>)}
           </View>}
-          {!!strengths.length && <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Key strengths</Text>
-            {strengths.map((item, index) => <View key={item.inconsistency_id || `strength-${index}`} style={styles.card}>
-              <Text style={styles.cardTitle}>{item.section_a} ↔ {item.section_b}</Text>
-              <Text style={styles.body}>{item.explanation_what}</Text>
-              {!!item.explanation_why && <Text style={styles.body}>{item.explanation_why}</Text>}
-            </View>)}
-          </View>}
           {!!result.citations?.length && <View style={styles.section}>
             <Text style={styles.sectionTitle}>Citations and references</Text>
             {result.citations.map((citation, index) => <View key={index} style={styles.card}>
               <Text style={styles.cardTitle}>{citation.citation_raw_reference_text}</Text>
               <Text style={styles.body}>{citation.citation_status} · {citation.citation_is_accessible ? 'Accessible' : 'Not accessible'}</Text>
               {!!citation.citation_primary_link && <Text style={styles.link}>{citation.citation_primary_link}</Text>}
-            </View>)}
-          </View>}
-          {!!dimensions.length && <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Coherence dimensions</Text>
-            {dimensions.map(([pair, scores]) => <View key={pair} style={styles.card}>
-              <Text style={styles.cardTitle}>{pair.replace('::', ' ↔ ')}</Text>
-              {Object.entries(scores || {}).map(([name, score]) => score == null ? null :
-                <View key={name} style={styles.dimensionRow}>
-                  <Text style={styles.body}>{name.replace(/_/g, ' ')}</Text>
-                  <Text style={styles.dimensionScore}>{Math.round(score)}</Text>
-                </View>)}
             </View>)}
           </View>}
         </>}
