@@ -1,158 +1,159 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  Animated,
-  StatusBar,
-  Image,
-} from 'react-native';
+import { View, StyleSheet, Animated, Easing, StatusBar, Image } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { getSession } from '../services/session';
+import { BrandBackdrop } from '../components/BrandBackdrop';
+import { fonts } from '../theme/colors';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Splash'>;
 };
 
-export const SplashScreen: React.FC<Props> = ({ navigation }) => {
-  // Symbol animations
-  const symbolOpacity = useRef(new Animated.Value(0)).current;
-  const symbolScale = useRef(new Animated.Value(0.88)).current;
-  // Starts offset so the symbol is situated directly at the horizontal center of the screen
-  const symbolTranslateX = useRef(new Animated.Value(61)).current;
+// Timeline follows the A1 mockup keyframes, compressed to a 5s run (1% = 50ms)
+const T = (pct: number) => pct * 50;
+const easeOut = Easing.bezier(0.22, 1, 0.36, 1);
+const easeInOut = Easing.bezier(0.65, 0, 0.35, 1);
 
-  // Text animations
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textTranslateX = useRef(new Animated.Value(-24)).current; // Follows the symbol from the left
+const MARK_OFFSET = 62;
+const WORDMARK_WIDTH = 125;
+
+export const SplashScreen: React.FC<Props> = ({ navigation }) => {
+  const markOpacity = useRef(new Animated.Value(0)).current;
+  const markScale = useRef(new Animated.Value(0.82)).current;
+  const markX = useRef(new Animated.Value(MARK_OFFSET)).current;
+
+  const wordOpacity = useRef(new Animated.Value(0)).current;
+  const wordX = useRef(new Animated.Value(-26)).current;
+  const wordReveal = useRef(new Animated.Value(0)).current; // JS-driven clip width
+
+  const tagOpacity = useRef(new Animated.Value(0)).current;
+  const tagY = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
-    // Stage 1: Symbol appears centered
-    Animated.parallel([
-      Animated.timing(symbolOpacity, {
-        toValue: 1,
-        duration: 450,
-        useNativeDriver: true,
-      }),
-      Animated.spring(symbolScale, {
-        toValue: 1,
-        tension: 40,
-        friction: 6,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    const timing = (v: Animated.Value, toValue: number, from: number, to: number, easing = easeOut, native = true) =>
+      Animated.timing(v, { toValue, delay: T(from), duration: T(to - from), easing, useNativeDriver: native });
 
-    // Stage 2: Symbol slides to the left, and the text follows into place
-    const slideTimer = setTimeout(() => {
-      Animated.parallel([
-        Animated.spring(symbolTranslateX, {
-          toValue: 0,
-          tension: 35,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.sequence([
-          Animated.delay(120),
-          Animated.parallel([
-            Animated.timing(textOpacity, {
-              toValue: 1,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.spring(textTranslateX, {
-              toValue: 0,
-              tension: 35,
-              friction: 7,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-      ]).start();
-    }, 550);
+    // Mark: pops in centered, holds, then slides left to make room for the wordmark
+    const anim = Animated.parallel([
+      timing(markOpacity, 1, 0, 15),
+      timing(markScale, 1, 0, 15),
+      timing(markX, 0, 30, 52, easeInOut),
+      // Wordmark: wipes in from the left while drifting into place
+      timing(wordOpacity, 1, 32, 60),
+      timing(wordX, 0, 32, 60),
+      // Tagline: rises in last
+      timing(tagOpacity, 1, 50, 68),
+      timing(tagY, 0, 50, 68),
+    ]);
+    const reveal = timing(wordReveal, WORDMARK_WIDTH, 32, 60, easeOut, false);
+    anim.start();
+    reveal.start();
 
-    // Stage 3: Navigate after full logo reveal
     const navTimer = setTimeout(async () => {
       const session = await getSession();
       if (!session.hasCompletedOnboarding) {
-        navigation.replace('Onboarding');
+        navigation.replace('Welcome');
       } else if (!session.isLoggedIn) {
         navigation.replace('Auth', { mode: 'login' });
       } else {
         navigation.replace('Main');
       }
-    }, 3500);
+    }, T(90));
 
     return () => {
-      clearTimeout(slideTimer);
+      anim.stop();
+      reveal.stop();
       clearTimeout(navTimer);
     };
-  }, [navigation, symbolOpacity, symbolScale, symbolTranslateX, textOpacity, textTranslateX]);
+  }, [navigation, markOpacity, markScale, markX, wordOpacity, wordX, wordReveal, tagOpacity, tagY]);
 
   return (
-    <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+    <BrandBackdrop
+      angle={165}
+      style={styles.container}
+      glows={[
+        { size: 300, color: '#4C7DFF', opacity: 0.45, position: { left: -90, top: -60 } },
+        { size: 260, color: '#2F6BFF', opacity: 0.7, position: { right: -80, bottom: 90 }, delay: 5000 },
+      ]}
+    >
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-      <View style={styles.brandLockup}>
-        {/* Symbol: exact user photo, starts centered, then slides left */}
-        <Animated.View
-          style={{
-            opacity: symbolOpacity,
-            transform: [
-              { translateX: symbolTranslateX },
-              { scale: symbolScale },
-            ],
-          }}
-        >
-          <Image
-            source={require('../assets/images/resync_symbol.png')}
-            style={styles.symbolImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+      <View style={styles.content}>
+        <View style={styles.lockup}>
+          <Animated.View
+            style={{
+              opacity: markOpacity,
+              transform: [{ translateX: markX }, { scale: markScale }],
+            }}
+          >
+            <Image
+              source={require('../assets/images/resync_symbol_white.png')}
+              style={styles.mark}
+              resizeMode="contain"
+            />
+          </Animated.View>
 
-        {/* Text: exact user photo, follows the symbol into place */}
-        <Animated.View
-          style={[
-            styles.textContainer,
-            {
-              opacity: textOpacity,
-              transform: [{ translateX: textTranslateX }],
-            },
-          ]}
+          <Animated.View
+            style={[styles.wordmarkSlot, { opacity: wordOpacity, transform: [{ translateX: wordX }] }]}
+          >
+            <Animated.View style={[styles.wordmarkClip, { width: wordReveal }]}>
+              <Image
+                source={require('../assets/images/resync_text_white.png')}
+                style={styles.wordmark}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </Animated.View>
+        </View>
+
+        <Animated.Text
+          style={[styles.tagline, { opacity: tagOpacity, transform: [{ translateY: tagY }] }]}
         >
-          <Image
-            source={require('../assets/images/resync_text.png')}
-            style={styles.textImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+          Manuscript coherence,{'\n'}checked end-to-end.
+        </Animated.Text>
       </View>
-    </View>
+    </BrandBackdrop>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandLockup: {
+  content: {
+    alignItems: 'center',
+    marginTop: -20,
+  },
+  lockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
   },
-  symbolImage: {
-    width: 74,
+  mark: {
+    height: 96,
+    width: 72,
+  },
+  wordmarkSlot: {
+    width: WORDMARK_WIDTH,
     height: 96,
   },
-  textContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  wordmarkClip: {
+    height: 96,
+    overflow: 'hidden',
   },
-  textImage: {
-    width: 108,
-    height: 72,
+  wordmark: {
+    height: 96,
+    width: 111,
+    marginLeft: 14,
+  },
+  tagline: {
+    marginTop: 26,
+    fontFamily: fonts.sans[400],
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: '#BFD0FF',
+    textAlign: 'center',
   },
 });
