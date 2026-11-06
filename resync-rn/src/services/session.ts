@@ -13,6 +13,13 @@ export interface UserSession {
   userInstitution: string;
   userRole: string;
   userBio: string;
+  creditsTotal: number;
+  contactNumber: string;
+  program: string;
+  yearLevel: string;
+  researchTitle: string;
+  memberSince: string; // ISO date, stamped the first time the session is read
+  hasSeenScanTour: boolean;
 }
 
 const DEFAULT_SESSION: UserSession = {
@@ -28,7 +35,17 @@ const DEFAULT_SESSION: UserSession = {
   userInstitution: 'Stanford University',
   userRole: 'Principal Investigator',
   userBio: 'Specializing in distributed systems coherence and academic reference validation systems.',
+  creditsTotal: 999,
+  contactNumber: '',
+  program: '',
+  yearLevel: '',
+  researchTitle: '',
+  memberSince: '',
+  hasSeenScanTour: false,
 };
+
+/** Credits left after the scans already run (each scan uses one credit). */
+export const creditsAvailable = (s: UserSession) => Math.max(0, s.creditsTotal - s.scansCount);
 
 const KEYS = {
   AUTH_TOKEN: 'auth_token',
@@ -43,6 +60,13 @@ const KEYS = {
   USER_INSTITUTION: 'user_institution',
   USER_ROLE: 'user_role',
   USER_BIO: 'user_bio',
+  CREDITS_TOTAL: 'credits_total',
+  CONTACT_NUMBER: 'contact_number',
+  PROGRAM: 'program',
+  YEAR_LEVEL: 'year_level',
+  RESEARCH_TITLE: 'research_title',
+  MEMBER_SINCE: 'member_since',
+  HAS_SEEN_SCAN_TOUR: 'has_seen_scan_tour',
 };
 
 export async function getSession(): Promise<UserSession> {
@@ -60,6 +84,13 @@ export async function getSession(): Promise<UserSession> {
       userInstitution,
       userRole,
       userBio,
+      creditsTotal,
+      contactNumber,
+      program,
+      yearLevel,
+      researchTitle,
+      storedMemberSince,
+      hasSeenScanTour,
     ] = await Promise.all([
       AsyncStorage.getItem(KEYS.AUTH_TOKEN),
       AsyncStorage.getItem(KEYS.USER_EMAIL),
@@ -73,7 +104,20 @@ export async function getSession(): Promise<UserSession> {
       AsyncStorage.getItem(KEYS.USER_INSTITUTION),
       AsyncStorage.getItem(KEYS.USER_ROLE),
       AsyncStorage.getItem(KEYS.USER_BIO),
+      AsyncStorage.getItem(KEYS.CREDITS_TOTAL),
+      AsyncStorage.getItem(KEYS.CONTACT_NUMBER),
+      AsyncStorage.getItem(KEYS.PROGRAM),
+      AsyncStorage.getItem(KEYS.YEAR_LEVEL),
+      AsyncStorage.getItem(KEYS.RESEARCH_TITLE),
+      AsyncStorage.getItem(KEYS.MEMBER_SINCE),
+      AsyncStorage.getItem(KEYS.HAS_SEEN_SCAN_TOUR),
     ]);
+
+    let memberSince = storedMemberSince;
+    if (!memberSince) {
+      memberSince = new Date().toISOString();
+      await AsyncStorage.setItem(KEYS.MEMBER_SINCE, memberSince);
+    }
 
     return {
       authToken: authToken || DEFAULT_SESSION.authToken,
@@ -85,9 +129,17 @@ export async function getSession(): Promise<UserSession> {
       themePreference: (themePreference as any) || DEFAULT_SESSION.themePreference,
       pushNotifications: pushNotifications !== 'false',
       emailAlerts: emailAlerts !== 'false',
-      userInstitution: userInstitution || DEFAULT_SESSION.userInstitution,
+      // A cleared university is stored as '' and stays empty, so the profile can show "Not added"
+      userInstitution: userInstitution ?? DEFAULT_SESSION.userInstitution,
       userRole: userRole || DEFAULT_SESSION.userRole,
       userBio: userBio || DEFAULT_SESSION.userBio,
+      creditsTotal: creditsTotal ? parseInt(creditsTotal, 10) : DEFAULT_SESSION.creditsTotal,
+      contactNumber: contactNumber ?? '',
+      program: program ?? '',
+      yearLevel: yearLevel ?? '',
+      researchTitle: researchTitle ?? '',
+      memberSince,
+      hasSeenScanTour: hasSeenScanTour === 'true',
     };
   } catch {
     return DEFAULT_SESSION;
@@ -109,6 +161,13 @@ export async function saveSession(updates: Partial<UserSession>): Promise<void> 
   if (updates.userInstitution !== undefined) promises.push(AsyncStorage.setItem(KEYS.USER_INSTITUTION, updates.userInstitution));
   if (updates.userRole !== undefined) promises.push(AsyncStorage.setItem(KEYS.USER_ROLE, updates.userRole));
   if (updates.userBio !== undefined) promises.push(AsyncStorage.setItem(KEYS.USER_BIO, updates.userBio));
+  if (updates.creditsTotal !== undefined) promises.push(AsyncStorage.setItem(KEYS.CREDITS_TOTAL, String(updates.creditsTotal)));
+  if (updates.contactNumber !== undefined) promises.push(AsyncStorage.setItem(KEYS.CONTACT_NUMBER, updates.contactNumber));
+  if (updates.program !== undefined) promises.push(AsyncStorage.setItem(KEYS.PROGRAM, updates.program));
+  if (updates.yearLevel !== undefined) promises.push(AsyncStorage.setItem(KEYS.YEAR_LEVEL, updates.yearLevel));
+  if (updates.researchTitle !== undefined) promises.push(AsyncStorage.setItem(KEYS.RESEARCH_TITLE, updates.researchTitle));
+  if (updates.memberSince !== undefined) promises.push(AsyncStorage.setItem(KEYS.MEMBER_SINCE, updates.memberSince));
+  if (updates.hasSeenScanTour !== undefined) promises.push(AsyncStorage.setItem(KEYS.HAS_SEEN_SCAN_TOUR, updates.hasSeenScanTour ? 'true' : 'false'));
 
   await Promise.all(promises);
 }

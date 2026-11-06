@@ -1,372 +1,237 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  Pressable,
-  StatusBar,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import React, { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Pressable, StatusBar, Image } from 'react-native';
 import * as SvgModule from 'react-native-svg';
-const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
-const Defs = SvgModule.Defs;
-const Pattern = SvgModule.Pattern;
-const Rect = SvgModule.Rect;
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainTabParamList, RootStackParamList } from '../navigation/types';
-import { colors, fonts, gradients } from '../theme/colors';
-import { getSession } from '../services/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ResyncMonogram } from '../components/ResyncMonogram';
+import { MainTabParamList, RootStackParamList } from '../navigation/types';
+import { fonts } from '../theme/colors';
+import { getSession, creditsAvailable } from '../services/session';
+import { initialsOf } from '../components/AppHeader';
+import { IssueTag, useBobClock } from '../components/IssueTag';
+import { LineIcon, LineIconName } from '../components/LineIcon';
+import { Rise } from '../components/Rise';
+import { PressableScale } from '../components/PressableScale';
+
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const { Defs, Pattern, Circle, Rect, RadialGradient, LinearGradient: SvgLinearGradient, Stop, Mask } = SvgModule;
+
+// A5 mockup palette
+const C = {
+  ink: '#0B0A2E',
+  sub: '#5A5778',
+  brand: '#2B25C8',
+  brandTint: '#EEEDFF',
+  border: '#DAD8F2',
+  line: '#E6E5F7',
+  page: '#F5F5FE',
+  muted: '#8B89AD',
+  numeral: '#CFCDFB',
+};
+
+const SAMPLE_BARS = [
+  { w: '92%', c: C.line },
+  { w: '78%', c: C.line },
+  { w: '96%', c: '#FFE3A8' },
+  { w: '64%', c: C.line },
+  { w: '88%', c: C.line },
+  { w: '84%', c: '#FFC9D4' },
+  { w: '70%', c: C.line },
+  { w: '94%', c: C.numeral },
+] as const;
+
+const FEATURES: { icon: LineIconName; label: string }[] = [
+  { icon: 'link', label: 'Section coherence' },
+  { icon: 'chat', label: 'Citation checks' },
+  { icon: 'sparkle', label: 'AI-text indicator' },
+  { icon: 'doc', label: 'Word & Docs link' },
+];
+
+type Step = { n: string; icon: LineIconName; title: string; desc: string };
+
+// Two staggered columns: 01/03 on the left, 02/04 dropped lower on the right
+const STEP_COLUMNS: Step[][] = [
+  [
+    { n: '01', icon: 'template', title: 'Chapter template', desc: 'Optional. Attach or reuse saved headings.' },
+    { n: '03', icon: 'scanCheck', title: 'Coherence scan', desc: 'AI checks logic gaps, citations and more.' },
+  ],
+  [
+    { n: '02', icon: 'upload', title: 'Upload & confirm', desc: 'Word file or Google Docs link, then confirm.' },
+    { n: '04', icon: 'download', title: 'Export report', desc: 'Download the annotated PDF with fixes.' },
+  ],
+];
+
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+};
+
+/** Dark hero backdrop: indigo glow, dot grid fading in toward the bottom, and two outline rings. */
+const HeroBackdrop: React.FC = () => (
+  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg width="100%" height="100%">
+      <Defs>
+        <RadialGradient id="heroGlow" cx="85%" cy="62%" rx="70%" ry="45%" fx="85%" fy="62%">
+          <Stop offset="0" stopColor="#3A33E6" stopOpacity={1} />
+          <Stop offset="0.45" stopColor="#3A33E6" stopOpacity={0.35} />
+          <Stop offset="0.75" stopColor="#0B0A2E" stopOpacity={0} />
+        </RadialGradient>
+        <Pattern id="heroDots" width={28} height={28} patternUnits="userSpaceOnUse">
+          <Circle cx={14} cy={14} r={1.2} fill="#FFFFFF" fillOpacity={0.14} />
+        </Pattern>
+        <SvgLinearGradient id="heroFade" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0.2" stopColor="#FFFFFF" stopOpacity={0} />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity={1} />
+        </SvgLinearGradient>
+        <Mask id="heroMask">
+          <Rect width="100%" height="100%" fill="url(#heroFade)" />
+        </Mask>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#heroGlow)" />
+      <Rect width="100%" height="100%" fill="url(#heroDots)" mask="url(#heroMask)" />
+    </Svg>
+    <View style={[styles.ring, { right: -150, top: -170, width: 420, height: 420, borderColor: 'rgba(255,255,255,0.12)' }]} />
+    <View style={[styles.ring, { right: -70, top: -90, width: 260, height: 260, borderColor: 'rgba(255,255,255,0.1)' }]} />
+  </View>
+);
 
 export const DashboardScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const [scansCount, setScansCount] = useState(3);
+  const bob = useBobClock();
+  const [credits, setCredits] = useState(0);
+  const [userName, setUserName] = useState('');
 
-  useEffect(() => {
-    getSession().then((s) => setScansCount(s.scansCount));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      getSession().then((s) => {
+        setCredits(creditsAvailable(s));
+        setUserName(s.userName);
+      });
+    }, []),
+  );
 
-  const timelineSteps = [
-    {
-      step: '01',
-      icon: 'upload',
-      title: 'Upload manuscript',
-      desc: 'Upload your .docx file or paste a Google Docs share link.',
-    },
-    {
-      step: '02',
-      icon: 'dashboard-customize',
-      title: 'Set type & template',
-      desc: 'Choose Quantitative or Qualitative, then edit our standard template.',
-    },
-    {
-      step: '03',
-      icon: 'schedule',
-      title: 'Coherence scan',
-      desc: 'AI cross-checks logic gaps, contradictions, redundancies and dead citations.',
-    },
-    {
-      step: '04',
-      icon: 'download',
-      title: 'Export report',
-      desc: 'Download your annotated report and fix recommendations as a PDF.',
-    },
-  ];
-
-  const deliverables = [
-    {
-      icon: 'speed',
-      color: '#0A2AB8',
-      bg: '#EEF2FF',
-      title: 'Coherence score',
-      desc: '0–100 score with logic, consistency and citation sub-scores.',
-    },
-    {
-      icon: 'subject',
-      color: '#2563EB',
-      bg: '#EFF6FF',
-      title: 'Annotated manuscript',
-      desc: 'Every flagged passage highlighted inline by type.',
-    },
-    {
-      icon: 'task-alt',
-      color: '#059669',
-      bg: '#ECFDF5',
-      title: 'Fix recommendations',
-      desc: 'Concrete rewrites for each flagged issue.',
-    },
-    {
-      icon: 'link',
-      color: '#D97706',
-      bg: '#FFFBEB',
-      title: 'Verified references',
-      desc: 'Live or dead status for every URL and DOI.',
-    },
-  ];
-
-  const guidanceItems = [
-    {
-      icon: 'description',
-      title: 'Digital manuscripts',
-      sub: 'DOCX, PDF, Google Docs',
-    },
-    {
-      icon: 'menu-book',
-      title: 'Standard structure',
-      sub: 'Chapters 1–5 & IMRaD',
-    },
-    {
-      icon: 'view-agenda',
-      title: 'Single-column flow',
-      sub: 'Sequential reading order',
-    },
-    {
-      icon: 'notes',
-      title: 'Direct prose',
-      sub: 'Clear claims and conclusions',
-    },
-    {
-      icon: 'link',
-      title: 'Open references',
-      sub: 'Public citations and DOIs',
-    },
-    {
-      icon: 'science',
-      title: 'Method focus',
-      sub: 'Qualitative or quantitative fit',
-    },
-  ];
+  const parts = userName.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] ?? '';
+  const initials = initialsOf(userName);
 
   return (
-    <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+    <View style={styles.page}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 30 }]}
-      >
-        {/* HERO */}
-        <LinearGradient
-          colors={gradients.hero.colors}
-          start={gradients.hero.start}
-          end={gradients.hero.end}
-          style={[styles.hero, { paddingTop: insets.top + 6 }]}
-        >
-          {/* Dot grid overlay */}
-          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            <Svg width="100%" height="100%">
-              <Defs>
-                <Pattern
-                  id="dotGrid"
-                  x="0"
-                  y="0"
-                  width="18"
-                  height="18"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <Rect
-                    x="2"
-                    y="2"
-                    width="1.5"
-                    height="1.5"
-                    fill="rgba(255,255,255,0.12)"
-                  />
-                </Pattern>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#dotGrid)" />
-            </Svg>
+      {/* Top bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 14 }]}>
+        <Image source={require('../assets/images/resync_logo_color.png')} style={styles.logo} resizeMode="contain" />
+        <View style={styles.topRight}>
+          <Pressable onPress={() => tabNav.navigate('Credits')} style={styles.creditsChip} hitSlop={4}>
+            <LineIcon name="star" size={17} color={C.brand} />
+            <Text style={styles.creditsText}>Credits: {credits}</Text>
+          </Pressable>
+          <View style={styles.bell}>
+            <LineIcon name="bell" size={18} color={C.sub} />
+            <View style={styles.bellDot} />
           </View>
+          <Pressable onPress={() => tabNav.navigate('Profile')} style={styles.avatar} hitSlop={4}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </Pressable>
+        </View>
+      </View>
 
-          {/* Top row */}
-          <View style={styles.topRow}>
-            <View style={styles.brandGroup}>
-              <ResyncMonogram width={24} height={30} color="#FFFFFF" />
-              <Text style={styles.heroBrandText}>Resync</Text>
-            </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* Hero */}
+        <View style={styles.hero}>
+          <HeroBackdrop />
 
-            <View style={styles.headerRightGroup}>
-              {/* Credits pill */}
-              <View style={styles.creditsPill}>
-                <MaterialIcons name="toll" size={15} color="#A5B4FC" />
-                <Text style={styles.creditsText}>{scansCount} credits</Text>
-              </View>
-
-              {/* Bell icon */}
-              <View style={styles.bellWrapper}>
-                <MaterialIcons name="notifications-none" size={22} color={colors.white} />
-                <View style={styles.bellDot} />
-              </View>
-
-              {/* Avatar */}
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>VM</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Greeting Pill */}
-          <View style={styles.greetingPill}>
-            <Text style={styles.greetingText}>Good morning, Veronica</Text>
-          </View>
-
-          {/* Headline */}
-          <Text style={styles.headline}>
-            Your manuscript,{' '}
-            <Text style={{ color: '#93C5FD' }}>checked{'\n'}end-to-end.</Text>
-          </Text>
-
-          {/* Body */}
-          <Text style={styles.heroBody}>
-            Detect logic gaps, cross-chapter contradictions, terminology drift and
-            inaccessible citations, all in under 2 minutes.
-          </Text>
-
-          {/* CTA row */}
-          <View style={styles.ctaRow}>
-            <Pressable
-              onPress={() => tabNav.navigate('Upload')}
-              style={({ pressed }) => [
-                styles.ctaButton,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <MaterialIcons name="upload" size={19} color={colors.ink} />
-              <Text style={styles.ctaButtonText}>Start a scan</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => rootNav.push('Report', { heavy: false })}
-              style={({ pressed }) => [
-                styles.previewLink,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Text style={styles.previewText}>Preview sample</Text>
-              <MaterialIcons name="arrow-forward" size={17} color={colors.white} />
-            </Pressable>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.heroDivider} />
-
-          {/* Meta row */}
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <View style={[styles.metaDot, { backgroundColor: '#34D399' }]} />
-              <Text style={styles.metaText}>AI multi-model pipeline</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <View style={[styles.metaDot, { backgroundColor: 'rgba(255,255,255,0.45)' }]} />
-              <Text style={styles.metaText}>Quantitative & qualitative</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <View style={[styles.metaDot, { backgroundColor: 'rgba(255,255,255,0.45)' }]} />
-              <Text style={styles.metaText}>Citation verifier</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <MaterialIcons name="schedule" size={14} color={colors.white} />
-              <Text style={[styles.metaText, { fontFamily: fonts.sans[600] }]}>
-                ~2 min average
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* BODY CONTENT */}
-        <View style={styles.bodyContent}>
-          {/* SECTION 1: PROCESS */}
-          <View style={styles.section}>
-            <Text style={styles.eyebrowMono}>PROCESS</Text>
-            <Text style={styles.h2}>How it works</Text>
-            <Text style={styles.sectionSubtitle}>
-              Four simple steps from manuscript to coherence report.
+          <Rise delay={50} style={styles.greetPill}>
+            <View style={styles.greetDot} />
+            <Text style={styles.greetText}>
+              {greeting()}
+              {firstName ? `, ${firstName}` : ''}
             </Text>
+          </Rise>
+          <Rise delay={50}>
+            <Text style={styles.heroTitle}>
+              Your manuscript, <Text style={{ color: '#B9B6FF' }}>checked end-to-end.</Text>
+            </Text>
+          </Rise>
+          <Rise delay={180}>
+            <Text style={styles.heroBody}>
+              Check logical links between consecutive sections, citations, and the AI-text indicator in one report.
+            </Text>
+          </Rise>
 
-            {/* Timeline */}
-            <View style={styles.timeline}>
-              {timelineSteps.map((item, idx) => {
-                const isLast = idx === timelineSteps.length - 1;
-                return (
-                  <View key={item.step} style={styles.timelineRow}>
-                    {/* Left Column */}
-                    <View style={styles.leftCol}>
-                      <View style={styles.stepIconTile}>
-                        <MaterialIcons
-                          name={item.icon}
-                          size={21}
-                          color={colors.white}
-                        />
-                      </View>
-                      {!isLast && <View style={styles.dashedConnector} />}
-                    </View>
+          <Rise delay={300} style={styles.ctaRow}>
+            <PressableScale onPress={() => tabNav.navigate('Upload')} style={styles.ctaPrimary}>
+              <LineIcon name="upload" size={22} color={C.brand} />
+              <Text style={styles.ctaPrimaryText}>Start a Scan</Text>
+            </PressableScale>
+            <PressableScale onPress={() => rootNav.push('Report', { heavy: false })} style={styles.ctaGhost}>
+              <Text style={styles.ctaGhostText}>Preview sample</Text>
+              <LineIcon name="arrowRight" size={16} color="#FFFFFF" />
+            </PressableScale>
+          </Rise>
 
-                    {/* Right Column Card */}
-                    <View style={styles.timelineCard}>
-                      <Text style={styles.stepLabel}>STEP {item.step}</Text>
-                      <Text style={styles.stepTitleText}>{item.title}</Text>
-                      <Text style={styles.stepDescText}>{item.desc}</Text>
-                    </View>
+          <Rise delay={420} style={styles.cardArea}>
+            <View style={styles.cardWrap}>
+              <View style={styles.cardShadowTile} />
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIcon}>
+                    <LineIcon name="doc" size={18} color={C.brand} />
                   </View>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* SECTION 2: OUTPUTS */}
-          <View style={styles.section}>
-            <Text style={styles.eyebrowMono}>OUTPUTS</Text>
-            <Text style={styles.h2}>What you get</Text>
-            <Text style={styles.sectionSubtitle}>
-              Four deliverables, every scan, automatically.
-            </Text>
-
-            {/* 2x2 Grid */}
-            <View style={styles.grid2x2}>
-              {deliverables.map((item) => (
-                <View key={item.title} style={styles.outputCard}>
-                  <View
-                    style={[styles.outputIconTile, { backgroundColor: item.bg }]}
-                  >
-                    <MaterialIcons
-                      name={item.icon}
-                      size={19}
-                      color={item.color}
-                    />
-                  </View>
-                  <Text style={styles.outputTitle}>{item.title}</Text>
-                  <Text style={styles.outputDesc}>{item.desc}</Text>
+                  <Text style={styles.cardTitle}>Coherence report</Text>
+                  <Text style={styles.samplePill}>SAMPLE</Text>
                 </View>
-              ))}
+                {SAMPLE_BARS.map((b, i) => (
+                  <View key={i} style={[styles.bar, { width: b.w, backgroundColor: b.c }]} />
+                ))}
+              </View>
+              <IssueTag clock={bob} phase={0} dot="#F5A524" label="Logic gap between sections" style={{ right: -22, top: 62 }} />
+              <IssueTag clock={bob} phase={1 / 3} dot="#F43F5E" label="Citation not accessible" style={{ left: -22, top: 132 }} />
+              <IssueTag clock={bob} phase={2 / 3} dot={C.brand} label="Highlighted suggestion" style={{ right: -14, bottom: -14 }} />
             </View>
-          </View>
+          </Rise>
 
-          {/* SECTION 3: GUIDANCE */}
-          <View style={styles.section}>
-            <Text style={styles.eyebrowMono}>GUIDANCE</Text>
-            <Text style={styles.h2}>Best results with</Text>
-            <Text style={styles.sectionSubtitle}>
-              Resync is most accurate when your manuscript follows these standards.
-            </Text>
-
-            {/* 2-column Grid */}
-            <View style={styles.guidanceGrid}>
-              {guidanceItems.map((item) => (
-                <View key={item.title} style={styles.guidanceItem}>
-                  <LinearGradient
-                    colors={gradients.guideTile.colors}
-                    start={gradients.guideTile.start}
-                    end={gradients.guideTile.end}
-                    style={styles.guidanceTile}
-                  >
-                    <MaterialIcons
-                      name={item.icon}
-                      size={28}
-                      color={colors.primary}
-                    />
-                  </LinearGradient>
-                  <Text style={styles.guidanceTitle}>{item.title}</Text>
-                  <Text style={styles.guidanceSub}>{item.sub}</Text>
+          <View style={styles.featureGrid}>
+            {FEATURES.map((f) => (
+              <View key={f.label} style={styles.featureChip}>
+                <View style={styles.featureIcon}>
+                  <LineIcon name={f.icon} size={16} color={C.numeral} />
                 </View>
-              ))}
-            </View>
-
-            {/* Callout */}
-            <View style={styles.calloutBox}>
-              <MaterialIcons name="info" size={18} color={colors.primary} />
-              <Text style={styles.calloutText}>
-                <Text style={styles.calloutBold}>
-                  When inconsistencies may appear.{' '}
+                <Text style={styles.featureText} numberOfLines={2}>
+                  {f.label}
                 </Text>
-                Review flagged findings in Detailed Analysis & Recommendations.
-              </Text>
-            </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* How it works */}
+        <View style={styles.process}>
+          <Text style={styles.eyebrow}>PROCESS</Text>
+          <Text style={styles.processTitle}>How It Works</Text>
+          <Text style={styles.processSub}>Four simple steps from manuscript to coherence report.</Text>
+
+          <View style={styles.stepGrid}>
+            {STEP_COLUMNS.map((col, ci) => (
+              <View key={ci} style={[styles.stepCol, ci === 1 && { paddingTop: 40 }]}>
+                {col.map((s) => (
+                  <View key={s.n} style={styles.stepWrap}>
+                    <View style={styles.stepCard}>
+                      <View style={styles.stepIcon}>
+                        <LineIcon name={s.icon} size={22} color="#FFFFFF" />
+                      </View>
+                      <Text style={styles.stepLabel}>STEP {Number(s.n)}</Text>
+                      <Text style={styles.stepTitle}>{s.title}</Text>
+                      <Text style={styles.stepDesc}>{s.desc}</Text>
+                    </View>
+                    <Text style={styles.stepNumeral}>{s.n}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -375,344 +240,398 @@ export const DashboardScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
     flex: 1,
-    backgroundColor: colors.soft,
+    backgroundColor: C.page,
   },
-  scrollContent: {
-    flexGrow: 1,
+  scroll: {
+    paddingBottom: 40,
   },
-  hero: {
-    paddingHorizontal: 20,
-    paddingBottom: 22,
-    position: 'relative',
-  },
-  topRow: {
+
+  // Top bar
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+    zIndex: 3,
   },
-  brandGroup: {
+  logo: {
+    width: 69,
+    height: 34,
+  },
+  topRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  headerRightGroup: {
+  creditsChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  heroBrandText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 20,
-    color: colors.white,
-    letterSpacing: -0.4,
-  },
-  creditsPill: {
-    height: 30,
-    paddingHorizontal: 10,
-    borderRadius: 15,
+    gap: 8,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: C.brandTint,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+    borderColor: C.border,
   },
   creditsText: {
-    fontFamily: fonts.sans[600],
-    fontSize: 12,
-    color: colors.white,
+    fontFamily: fonts.sans[800],
+    fontSize: 12.5,
+    color: C.brand,
   },
-  bellWrapper: {
-    position: 'relative',
-    padding: 2,
+  bell: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bellDot: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.pink,
-    borderWidth: 1.5,
-    borderColor: '#0A1E8C',
+    right: 8,
+    top: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3B82F6',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.white,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontFamily: fonts.sans[800],
     fontSize: 12,
-    color: colors.primary,
+    color: '#FFFFFF',
   },
-  greetingPill: {
-    alignSelf: 'flex-start',
-    marginTop: 26,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+
+  // Hero
+  hero: {
+    overflow: 'hidden',
+    backgroundColor: C.ink,
+    paddingTop: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 70,
+  },
+  ring: {
+    position: 'absolute',
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
   },
-  greetingText: {
-    fontFamily: fonts.sans[600],
-    fontSize: 12,
-    color: colors.white,
-  },
-  headline: {
-    marginTop: 14,
-    fontFamily: fonts.display[700],
-    fontSize: 31,
-    lineHeight: 34,
-    letterSpacing: -1,
-    color: colors.white,
-  },
-  heroBody: {
-    marginTop: 10,
-    fontFamily: fonts.sans[400],
-    fontSize: 14,
-    lineHeight: 21,
-    color: 'rgba(255,255,255,0.82)',
-  },
-  ctaRow: {
-    marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-  },
-  ctaButton: {
-    height: 46,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    backgroundColor: colors.white,
+  greetPill: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
-  ctaButtonText: {
-    fontFamily: fonts.sans[700],
-    fontSize: 14.5,
-    color: colors.ink,
+  greetDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#34D399',
   },
-  previewLink: {
+  greetText: {
+    fontFamily: fonts.sans[600],
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  heroTitle: {
+    marginTop: 18,
+    fontFamily: fonts.sans[800],
+    fontSize: 34,
+    lineHeight: 37,
+    letterSpacing: -1.2,
+    color: '#FFFFFF',
+  },
+  heroBody: {
+    marginTop: 14,
+    fontFamily: fonts.sans[400],
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#D3D1F5',
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 22,
+  },
+  ctaPrimary: {
+    flex: 1.1,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 10,
   },
-  previewText: {
+  ctaPrimaryText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 14.5,
+    color: C.brand,
+  },
+  ctaGhost: {
+    flex: 1,
+    height: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+  },
+  ctaGhostText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 14.5,
+    color: '#FFFFFF',
+  },
+
+  // Sample card
+  cardArea: {
+    marginTop: 52,
+    marginBottom: 34,
+    alignItems: 'center',
+  },
+  cardWrap: {
+    width: 272,
+  },
+  cardShadowTile: {
+    position: 'absolute',
+    left: 14,
+    right: -14,
+    top: 18,
+    height: 226,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    transform: [{ rotate: '5deg' }],
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    paddingTop: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 22,
+    gap: 11,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 36 },
+    shadowOpacity: 0.5,
+    shadowRadius: 28,
+    elevation: 18,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 6,
+  },
+  cardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: C.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
     fontFamily: fonts.sans[700],
     fontSize: 14,
-    color: colors.white,
+    color: C.ink,
   },
-  heroDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    marginTop: 22,
-    marginBottom: 14,
+  samplePill: {
+    marginLeft: 'auto',
+    fontFamily: fonts.sans[800],
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: C.brand,
+    backgroundColor: C.brandTint,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
-  metaRow: {
+  bar: {
+    height: 9,
+    borderRadius: 6,
+  },
+
+  // Feature chips
+  featureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
-    rowGap: 8,
+    gap: 8,
   },
-  metaItem: {
+  featureChip: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 9,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  metaDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  featureIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  metaText: {
-    fontFamily: fonts.sans[400],
+  featureText: {
+    flex: 1,
+    fontFamily: fonts.sans[600],
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 15,
+    color: '#E4E3FF',
   },
-  bodyContent: {
-    paddingHorizontal: 20,
-    paddingTop: 26,
-    gap: 30,
+
+  // How it works
+  process: {
+    zIndex: 2,
+    marginTop: -38,
+    marginHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
+    paddingTop: 28,
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+    alignItems: 'center',
+    shadowColor: C.brand,
+    shadowOffset: { width: 0, height: 30 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 6,
   },
-  section: {},
-  eyebrowMono: {
+  eyebrow: {
     fontFamily: fonts.mono[500],
     fontSize: 11,
-    color: colors.primary,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    letterSpacing: 2.2,
+    color: C.brand,
   },
-  h2: {
+  processTitle: {
     marginTop: 6,
-    fontFamily: fonts.display[700],
-    fontSize: 24,
-    letterSpacing: -0.5,
-    color: colors.ink,
+    marginBottom: 4,
+    fontFamily: fonts.sans[800],
+    fontSize: 27,
+    letterSpacing: -0.7,
+    color: C.ink,
   },
-  sectionSubtitle: {
-    marginTop: 4,
+  processSub: {
     fontFamily: fonts.sans[400],
     fontSize: 13.5,
-    color: colors.muted,
+    lineHeight: 20,
+    color: C.sub,
+    textAlign: 'center',
   },
-  // Timeline
-  timeline: {
-    marginTop: 18,
-  },
-  timelineRow: {
+  stepGrid: {
+    alignSelf: 'stretch',
     flexDirection: 'row',
     gap: 14,
+    marginTop: 10,
   },
-  leftCol: {
-    alignItems: 'center',
-    width: 44,
+  stepCol: {
+    flex: 1,
+    minWidth: 0,
   },
-  stepIconTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: colors.primary,
+  stepWrap: {
+    marginTop: 52,
+  },
+  stepNumeral: {
+    position: 'absolute',
+    left: 4,
+    top: -40,
+    fontFamily: fonts.sans[800],
+    fontSize: 68,
+    lineHeight: 68,
+    letterSpacing: -3.4,
+    color: C.numeral,
+    zIndex: 2,
+    elevation: 7,
+  },
+  stepCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 22,
+    paddingTop: 34,
+    paddingHorizontal: 14,
+    paddingBottom: 18,
+    shadowColor: C.brand,
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.18,
+    shadowRadius: 17,
+    elevation: 5,
+  },
+  stepIcon: {
+    position: 'absolute',
+    right: 14,
+    top: -22,
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: C.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-  },
-  dashedConnector: {
-    width: 1,
-    flex: 1,
-    marginVertical: 4,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: '#93C5FD',
-  },
-  timelineCard: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 16,
-    paddingTop: 14,
-    paddingHorizontal: 14,
-    paddingBottom: 16,
-    marginBottom: 12,
+    shadowColor: C.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   stepLabel: {
-    fontFamily: fonts.mono[500],
-    fontSize: 10.5,
-    color: colors.primary,
+    marginTop: 18,
+    fontFamily: fonts.mono[700],
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: C.brand,
   },
-  stepTitleText: {
-    marginTop: 2,
+  stepTitle: {
+    marginTop: 5,
+    marginBottom: 6,
     fontFamily: fonts.sans[700],
     fontSize: 15.5,
-    color: colors.ink,
-  },
-  stepDescText: {
-    marginTop: 4,
-    fontFamily: fonts.sans[400],
-    fontSize: 13,
     lineHeight: 19,
-    color: colors.muted,
+    letterSpacing: -0.15,
+    color: C.ink,
   },
-  // Deliverables 2x2
-  grid2x2: {
-    marginTop: 18,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  outputCard: {
-    width: '48.5%',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-  },
-  outputIconTile: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outputTitle: {
-    fontFamily: fonts.sans[700],
-    fontSize: 14,
-    color: colors.ink,
-  },
-  outputDesc: {
+  stepDesc: {
     fontFamily: fonts.sans[400],
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.muted,
-  },
-  // Guidance
-  guidanceGrid: {
-    marginTop: 18,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: 18,
-    columnGap: 12,
-    justifyContent: 'space-between',
-  },
-  guidanceItem: {
-    width: '30%',
-    alignItems: 'center',
-  },
-  guidanceTile: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#DCE3FD',
-    elevation: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  guidanceTitle: {
-    marginTop: 8,
-    fontFamily: fonts.sans[700],
-    fontSize: 14,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  guidanceSub: {
-    marginTop: 2,
-    fontFamily: fonts.sans[400],
-    fontSize: 12,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  calloutBox: {
-    marginTop: 22,
-    backgroundColor: '#EEF2FF',
-    borderWidth: 1,
-    borderColor: '#D5DDFB',
-    borderRadius: 14,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  calloutText: {
-    flex: 1,
-    fontFamily: fonts.sans[400],
-    fontSize: 13,
+    fontSize: 12.5,
     lineHeight: 19,
-    color: colors.body,
-  },
-  calloutBold: {
-    fontFamily: fonts.sans[700],
-    color: colors.ink,
+    color: C.sub,
   },
 });

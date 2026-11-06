@@ -10,7 +10,8 @@ import {
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme/colors';
 import { SearchField } from '../components/SearchField';
 import { FilterChip } from '../components/FilterChip';
@@ -23,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const ArchiveScreen: React.FC = () => {
   const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const insets = useSafeAreaInsets();
 
   const [scans, setScans] = useState<ScanItem[]>([]);
@@ -99,7 +101,7 @@ export const ArchiveScreen: React.FC = () => {
         </View>
 
         <Pressable
-          onPress={() => rootNav.push('Settings')}
+          onPress={() => tabNav.navigate('Settings')}
           style={styles.gearBtn}
         >
           <MaterialIcons name="settings" size={22} color={colors.ink} />

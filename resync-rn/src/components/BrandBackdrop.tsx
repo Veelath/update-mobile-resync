@@ -18,6 +18,7 @@ export interface Glow {
 
 interface Props {
   angle?: number; // 165 on splash, 170 on welcome hero
+  mid?: number; // middle colour stop; 0.62 on the auth headers
   glows?: Glow[];
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
@@ -27,7 +28,7 @@ interface Props {
  * Deep-blue brand backdrop: diagonal gradient, slowly drifting dot grid,
  * and soft blurred glows (approximated with radial gradients).
  */
-export const BrandBackdrop: React.FC<Props> = ({ angle = 165, glows = [], style, children }) => {
+export const BrandBackdrop: React.FC<Props> = ({ angle = 165, mid, glows = [], style, children }) => {
   const dots = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export const BrandBackdrop: React.FC<Props> = ({ angle = 165, glows = [], style,
     <View style={[styles.root, style]}>
       <LinearGradient
         colors={['#06115F', '#1229B8', '#2A52F0']}
-        locations={[0, angle >= 170 ? 0.55 : 0.52, 1]}
+        locations={[0, mid ?? (angle >= 170 ? 0.55 : 0.52), 1]}
         start={{ x: 0.5 - dx, y: 0.5 - dy }}
         end={{ x: 0.5 + dx, y: 0.5 + dy }}
         style={StyleSheet.absoluteFill}

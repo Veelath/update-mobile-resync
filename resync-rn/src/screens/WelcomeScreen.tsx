@@ -1,13 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Animated,
-  Easing,
   StatusBar,
   Image,
-  Pressable,
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
@@ -18,6 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../navigation/types';
 import { setOnboardingCompleted } from '../services/session';
 import { BrandBackdrop } from '../components/BrandBackdrop';
+import { IssueTag, useBobClock } from '../components/IssueTag';
+import { Rise } from '../components/Rise';
+import { PressableScale } from '../components/PressableScale';
 import { fonts } from '../theme/colors';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
@@ -50,77 +50,16 @@ const SAMPLE_BARS = [
   { w: '50%', c: C.bar },
 ] as const;
 
-const riseEase = Easing.bezier(0.2, 0.7, 0.2, 1);
-
-/** Staggered fade-up entrance (the mockup's .rs1–.rs4). */
-const Rise: React.FC<{ delay: number; style?: any; children: React.ReactNode }> = ({ delay, style, children }) => {
-  const v = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(v, { toValue: 1, duration: 700, delay, easing: riseEase, useNativeDriver: true }).start();
-  }, [v, delay]);
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity: v,
-          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
-};
-
-// One shared 6s clock; each tag samples it at a phase offset so they bob out of step
-const BOB_STEPS = 12;
-const bobRange = (phase: number) => {
-  const inputRange: number[] = [];
-  const outputRange: number[] = [];
-  for (let i = 0; i <= BOB_STEPS; i++) {
-    const t = i / BOB_STEPS;
-    inputRange.push(t);
-    outputRange.push(-3.5 * (1 - Math.cos(2 * Math.PI * (t + phase))));
-  }
-  return { inputRange, outputRange };
-};
-
-const IssueTag: React.FC<{ clock: Animated.Value; phase: number; dot: string; label: string; style: any }> = ({
-  clock,
-  phase,
-  dot,
-  label,
-  style,
-}) => (
-  <Animated.View style={[styles.tag, style, { transform: [{ translateY: clock.interpolate(bobRange(phase)) }] }]}>
-    <View style={[styles.tagDot, { backgroundColor: dot }]} />
-    <Text style={styles.tagText}>{label}</Text>
-  </Animated.View>
-);
-
 export const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
-  const bob = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(bob, { toValue: 1, duration: 6000, easing: Easing.linear, useNativeDriver: true }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [bob]);
+  const bob = useBobClock();
 
   const heroHeight = Math.min(496, Math.round(screenHeight * 0.56)) + insets.top;
 
-  const handleCreateAccount = () => {
-    navigation.navigate('Onboarding');
-  };
-
-  const handleLogin = async () => {
+  const openAuth = async (mode: 'signup' | 'login') => {
     await setOnboardingCompleted(true);
-    navigation.replace('Auth', { mode: 'login' });
+    navigation.navigate('Auth', { mode });
   };
 
   return (
@@ -186,19 +125,13 @@ export const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
           </Rise>
 
           <Rise delay={420} style={styles.actions}>
-            <Pressable
-              onPress={handleCreateAccount}
-              style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
-            >
+            <PressableScale onPress={() => openAuth('signup')} style={styles.btnPrimary}>
               <Text style={styles.btnPrimaryText}>Create free account</Text>
               <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
-            </Pressable>
-            <Pressable
-              onPress={handleLogin}
-              style={({ pressed }) => [styles.btnGhost, pressed && { backgroundColor: '#F6F5FF' }]}
-            >
+            </PressableScale>
+            <PressableScale onPress={() => openAuth('login')} style={styles.btnGhost}>
               <Text style={styles.btnGhostText}>I already have an account</Text>
-            </Pressable>
+            </PressableScale>
             <Text style={styles.legal}>By continuing you agree to the Terms and Privacy Policy.</Text>
           </Rise>
         </ScrollView>
@@ -290,31 +223,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 6,
   },
-  tag: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    height: 28,
-    paddingHorizontal: 11,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.35,
-    shadowRadius: 13,
-    elevation: 22,
-  },
-  tagDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  tagText: {
-    fontFamily: fonts.sans[700],
-    fontSize: 11,
-    color: C.ink,
-  },
   sheet: {
     flex: 1,
     marginTop: -30,
@@ -383,10 +291,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans[700],
     fontSize: 15,
     color: C.ink,
-  },
-  pressed: {
-    transform: [{ translateY: 1 }],
-    opacity: 0.92,
   },
   legal: {
     marginTop: 4,

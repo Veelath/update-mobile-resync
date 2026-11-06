@@ -2,103 +2,168 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
+  TextInputProps,
   ScrollView,
   StyleSheet,
   Pressable,
   StatusBar,
   Alert,
+  Image,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  LayoutAnimation,
+  Platform,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import * as SvgModule from 'react-native-svg';
-const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
-const Path = SvgModule.Path;
-const Circle = SvgModule.Circle;
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../navigation/types';
-import { colors, fonts } from '../theme/colors';
-import { TextField } from '../components/TextField';
-import { Button } from '../components/Button';
-import { Checkbox } from '../components/Checkbox';
+import { fonts } from '../theme/colors';
 import { loginUser, registerUser } from '../services/scanRepository';
 import { saveSession } from '../services/session';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BrandBackdrop } from '../components/BrandBackdrop';
+import { IssueTag, useBobClock } from '../components/IssueTag';
+import { LineIcon, LineIconName } from '../components/LineIcon';
+import { Rise } from '../components/Rise';
+import { PressableScale } from '../components/PressableScale';
+import { PasswordRules, meetsPasswordRules } from '../components/PasswordRules';
+
+const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
+const Path = SvgModule.Path;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
-// Authentic Google Multicolor 'G' Icon
-const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <Path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <Path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <Path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-    />
+// A3/A4 mockup palette
+const C = {
+  ink: '#0B0A2E',
+  sub: '#5A5778',
+  label: '#4C4A6B',
+  brand: '#2B25C8',
+  border: '#DAD8F2',
+  line: '#E6E5F7',
+  icon: '#8B89AD',
+  placeholder: '#9A98B8',
+  or: '#7D7B9E',
+  box: '#C4C2E6',
+  error: '#D6264A',
+};
+
+const GoogleIcon: React.FC = () => (
+  <Svg width={20} height={20} viewBox="0 0 48 48">
+    <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+    <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+    <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+    <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
   </Svg>
 );
 
-// Authentic Facebook Icon
-const FacebookIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Circle cx="12" cy="12" r="12" fill="#1877F2" />
-    <Path
-      d="M15.12 12.35h-2.12v7.65h-3.16v-7.65H8.35v-2.7h1.49V7.78c0-2.06 1.23-3.18 3.09-3.18.89 0 1.83.16 1.83.16v2.01h-1.03c-1.02 0-1.34.63-1.34 1.28v1.6h2.27l-.36 2.7z"
-      fill="#FFFFFF"
-    />
-  </Svg>
+/** Rounded pill input (the mockups' .pi) with optional leading icon and password eye toggle. */
+const PillField: React.FC<
+  TextInputProps & { icon?: LineIconName; height?: number; secure?: boolean; error?: string; flex?: boolean }
+> = ({ icon, height = 50, secure, error, flex, ...input }) => {
+  const [focused, setFocused] = useState(false);
+  const [hidden, setHidden] = useState(true);
+  return (
+    <View style={flex && styles.flex1}>
+      <View
+        style={[
+          styles.pill,
+          { height, paddingHorizontal: icon ? 18 : 16 },
+          focused && styles.pillFocused,
+          !!error && { borderColor: C.error },
+        ]}
+      >
+        {icon && <LineIcon name={icon} color={C.icon} />}
+        <TextInput
+          {...input}
+          style={styles.pillInput}
+          placeholderTextColor={C.placeholder}
+          secureTextEntry={secure && hidden}
+          onFocus={(e) => {
+            setFocused(true);
+            input.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            input.onBlur?.(e);
+          }}
+        />
+        {secure && (
+          <Pressable onPress={() => setHidden((h) => !h)} hitSlop={10}>
+            <LineIcon name={hidden ? 'eye' : 'eyeOff'} color={C.icon} />
+          </Pressable>
+        )}
+      </View>
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+};
+
+const CheckBox: React.FC<{ checked: boolean; onToggle: () => void; children: React.ReactNode; center?: boolean }> = ({
+  checked,
+  onToggle,
+  children,
+  center,
+}) => (
+  <Pressable onPress={onToggle} style={[styles.chkRow, center && { alignItems: 'center' }]} hitSlop={6}>
+    <View style={[styles.chkBox, checked && styles.chkBoxOn]}>
+      {checked && <LineIcon name="check" size={14} color="#FFFFFF" />}
+    </View>
+    {children}
+  </Pressable>
 );
 
 export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
-  const initialMode = route.params?.mode || 'login';
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+  const [mode, setMode] = useState<'login' | 'signup'>(route.params?.mode || 'login');
   const insets = useSafeAreaInsets();
+  const bob = useBobClock();
 
-  // Form states
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [school, setSchool] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [agree, setAgree] = useState(false);
 
-  // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (mode === 'signup' && !name.trim()) {
-      newErrors.name = 'Please enter your full name';
-    }
-    if (!email || !email.includes('@')) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-    if (!password || password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    if (mode === 'signup' && !agree) {
-      newErrors.agree = 'You must agree to continue';
-    }
+  const isLogin = mode === 'login';
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const clearError = (key: string) => {
+    if (errors[key]) setErrors({ ...errors, [key]: '' });
   };
+
+  const passwordOk = meetsPasswordRules(password);
+  const showRules = password.length > 0;
+
+  const validate = (): boolean => {
+    const next: Record<string, string> = {};
+    if (!isLogin && !firstName.trim()) next.firstName = 'Enter your first name';
+    if (!isLogin && !lastName.trim()) next.lastName = 'Enter your last name';
+    if (!email || !email.includes('@')) next.email = 'Please enter a valid email address';
+    if (isLogin) {
+      if (!password || password.length < 6) next.password = 'Password must be at least 6 characters';
+    } else {
+      if (!passwordOk) next.password = 'Password does not meet all the requirements';
+      if (!confirmPassword) next.confirmPassword = 'Confirm your password';
+      else if (confirmPassword !== password) next.confirmPassword = 'Passwords do not match';
+    }
+    if (!isLogin && !agree) next.agree = 'You must agree to continue';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const goToApp = () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
 
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
-
     try {
-      if (mode === 'login') {
+      if (isLogin) {
         const res = await loginUser({ email, password });
         await saveSession({
           authToken: res.token,
@@ -107,20 +172,17 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
           isLoggedIn: true,
         });
       } else {
-        const res = await registerUser({ name, email, school, password });
+        const name = [firstName, middleName, lastName].map((s) => s.trim()).filter(Boolean).join(' ');
+        const res = await registerUser({ name, email, school: '', password });
         await saveSession({
           authToken: res.token,
           userEmail: res.email,
           userName: res.name,
-          userInstitution: res.school || school || 'Stanford University',
+          ...(res.school ? { userInstitution: res.school } : {}),
           isLoggedIn: true,
         });
       }
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
+      goToApp();
     } catch (err: any) {
       Alert.alert('Authentication Error', err.message || 'Something went wrong');
     } finally {
@@ -128,370 +190,514 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const isLogin = mode === 'login';
+  const handleGoogle = async () => {
+    await saveSession({
+      isLoggedIn: true,
+      userEmail: 'veronica@stanford.edu',
+      userName: 'Veronica May',
+      userInstitution: 'Stanford University',
+    });
+    goToApp();
+  };
+
+  const switchMode = () => {
+    // Ease the header height change and cross-fade the form instead of hard-cutting
+    LayoutAnimation.configureNext(LayoutAnimation.create(320, 'easeInEaseOut', 'opacity'));
+    setMode(isLogin ? 'signup' : 'login');
+    setErrors({});
+  };
+
+  const googleButton = (height: number) => (
+    <PressableScale onPress={handleGoogle} style={[styles.googleBtn, { height }]}>
+      <GoogleIcon />
+      <Text style={styles.googleText}>Continue with Google</Text>
+    </PressableScale>
+  );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+    <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => {
-            if (navigation.canGoBack()) navigation.goBack();
-          }}
-          style={styles.backBtn}
-        >
-          <MaterialIcons name="arrow-back" size={20} color="#334155" />
-        </Pressable>
-
-        <View style={styles.brandRow}>
-          <View style={styles.brandTile}>
-            <Text style={styles.brandR}>R</Text>
-          </View>
-          <Text style={styles.brandTitle}>Resync</Text>
-        </View>
-
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 20 },
-        ]}
+      <BrandBackdrop
+        angle={165}
+        mid={0.62}
+        style={{ height: (isLogin ? 190 : 150) + insets.top }}
+        glows={[{ size: 220, color: '#4C7DFF', opacity: 0.5, position: { right: -70, top: -40 } }]}
       >
-        {/* Title & Subtitle */}
-        <View style={styles.titleSection}>
-          <Text style={styles.titleText}>
-            {isLogin ? 'Welcome back' : 'Create account'}
-          </Text>
-          <Text style={styles.subtitleText}>
-            {isLogin
-              ? 'Sign in to access your scans and results.'
-              : 'Free forever. No credit card needed.'}
-          </Text>
-        </View>
-
-        {/* Social Row: Google and Facebook */}
-        <View style={styles.socialRow}>
+        <View style={[styles.headerRow, { paddingTop: insets.top + 18 }]}>
           <Pressable
-            style={styles.socialBtn}
-            onPress={async () => {
-              await saveSession({
-                isLoggedIn: true,
-                userEmail: 'veronica@stanford.edu',
-                userName: 'Veronica May',
-                userInstitution: 'Stanford University',
-              });
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-              });
-            }}
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.replace('Welcome'))}
+            style={styles.backBtn}
+            hitSlop={6}
           >
-            <GoogleIcon size={18} />
-            <Text style={styles.socialBtnText}>Google</Text>
+            <LineIcon name="back" color="#FFFFFF" />
           </Pressable>
-
-          <Pressable
-            style={styles.socialBtn}
-            onPress={async () => {
-              await saveSession({
-                isLoggedIn: true,
-                userEmail: 'veronica@stanford.edu',
-                userName: 'Veronica May',
-                userInstitution: 'Stanford University',
-              });
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-              });
-            }}
-          >
-            <FacebookIcon size={20} />
-            <Text style={styles.socialBtnText}>Facebook</Text>
-          </Pressable>
+          <Image
+            source={require('../assets/images/resync_logo_white.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerSpacer} />
         </View>
 
-        {/* Divider with text */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>
-            {isLogin ? 'or continue with\nemail' : 'or fill in the\nform'}
-          </Text>
-          <View style={styles.dividerLine} />
-        </View>
+        <IssueTag
+          clock={bob}
+          phase={0}
+          scale={0.9}
+          dot="#F5A524"
+          label="Logic gap between sections"
+          style={{ left: 22, bottom: 34, transformOrigin: 'left' }}
+        />
+        <IssueTag
+          clock={bob}
+          phase={1 / 3}
+          scale={0.9}
+          dot={C.brand}
+          label="AI-text indicator"
+          style={{ right: 20, bottom: 62, transformOrigin: 'right' }}
+        />
+      </BrandBackdrop>
 
-        {/* Form Fields */}
-        <View style={styles.form}>
-          {!isLogin && (
-            <TextField
-              label="FULL NAME"
-              placeholder="Juan Dela Cruz"
-              value={name}
-              onChangeText={(t) => {
-                setName(t);
-                if (errors.name) setErrors({ ...errors, name: '' });
-              }}
-              error={errors.name}
-            />
-          )}
-
-          <TextField
-            label="EMAIL"
-            placeholder="you@university.edu"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={(t) => {
-              setEmail(t);
-              if (errors.email) setErrors({ ...errors, email: '' });
-            }}
-            error={errors.email}
-          />
-
-          {!isLogin && (
-            <TextField
-              label="SCHOOL / UNIVERSITY"
-              placeholder="e.g. University of the Philippines"
-              value={school}
-              onChangeText={setSchool}
-            />
-          )}
-
-          <TextField
-            label="PASSWORD"
-            placeholder="••••••••"
-            isPassword
-            value={password}
-            onChangeText={(t) => {
-              setPassword(t);
-              if (errors.password) setErrors({ ...errors, password: '' });
-            }}
-            error={errors.password}
-            labelRight={
-              isLogin ? (
-                <Pressable onPress={() => Alert.alert('Reset Password', 'Password reset instructions sent')}>
-                  <Text style={styles.forgotText}>Forgot password?</Text>
-                </Pressable>
-              ) : undefined
-            }
-          />
-
-          {!isLogin && (
-            <View style={styles.agreementWrapper}>
-              <View style={styles.agreementRow}>
-                <Checkbox
-                  checked={agree}
-                  onToggle={(c) => {
-                    setAgree(c);
-                    if (errors.agree) setErrors({ ...errors, agree: '' });
-                  }}
-                />
-                <Text style={styles.agreementText}>
-                  I agree to the Terms of Service and Privacy Policy. I understand
-                  Resync is a decision-support tool.
-                </Text>
-              </View>
-              {errors.agree ? (
-                <Text style={styles.agreeError}>{errors.agree}</Text>
-              ) : null}
-            </View>
-          )}
-
-          {/* Primary Submit Button */}
-          <Button
-            title={isLogin ? 'Sign In' : 'Create My Account'}
-            onPress={handleSubmit}
-            loading={loading}
-            style={styles.submitBtn}
-          />
-        </View>
-
-        {/* Switch Link */}
-        <Pressable
-          onPress={() => {
-            setMode(isLogin ? 'signup' : 'login');
-            setErrors({});
-          }}
-          style={styles.switchRow}
+      <View style={styles.sheet}>
+        <ScrollView
+          key={mode}
+          contentContainerStyle={[styles.sheetContent, { paddingBottom: 22 + insets.bottom }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.switchText}>
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
-            <Text style={styles.switchHighlight}>
-              {isLogin ? 'Sign up' : 'Sign in'}
+          <Rise delay={50}>
+            <Text style={styles.eyebrow}>{isLogin ? 'ACADEMIC PORTAL' : 'NEW ACCOUNT'}</Text>
+            <Text style={[styles.title, !isLogin && styles.titleSignup]}>
+              {isLogin ? 'Welcome back' : 'Create your account'}
             </Text>
-          </Text>
-        </Pressable>
-      </ScrollView>
-    </View>
+          </Rise>
+          <Rise delay={180}>
+            <Text style={[styles.sub, !isLogin && styles.subSignup]}>
+              {isLogin
+                ? 'Sign in to review your manuscript and coherence reports.'
+                : 'Free to use — no credit card required.'}
+            </Text>
+          </Rise>
+
+          {isLogin ? (
+            <>
+              <Rise delay={300} style={styles.loginFields}>
+                <PillField
+                  icon="mail"
+                  placeholder="Email address"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  value={email}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    clearError('email');
+                  }}
+                  error={errors.email}
+                />
+                <PillField
+                  icon="lock"
+                  placeholder="Enter your password"
+                  secure
+                  autoComplete="password"
+                  value={password}
+                  onChangeText={(t) => {
+                    setPassword(t);
+                    clearError('password');
+                  }}
+                  error={errors.password}
+                />
+                <View style={styles.rememberRow}>
+                  <CheckBox checked={remember} onToggle={() => setRemember((r) => !r)} center>
+                    <Text style={styles.chkText}>Remember me</Text>
+                  </CheckBox>
+                  <Pressable
+                    onPress={() => Alert.alert('Reset Password', 'Password reset instructions sent')}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.link}>Forgot password?</Text>
+                  </Pressable>
+                </View>
+              </Rise>
+
+              <Rise delay={420}>
+                <PrimaryButton title="Sign in" loading={loading} onPress={handleSubmit} style={{ marginTop: 18 }} />
+                <OrDivider label="OR" style={{ marginTop: 18, marginBottom: 14 }} />
+                {googleButton(50)}
+              </Rise>
+            </>
+          ) : (
+            <>
+              <Rise delay={300} style={styles.signupFields}>
+                {googleButton(48)}
+                <OrDivider label="OR REGISTER WITH EMAIL" />
+                <View style={styles.nameRow}>
+                  <PillField
+                    flex
+                    height={48}
+                    placeholder="First name"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChangeText={(t) => {
+                      setFirstName(t);
+                      clearError('firstName');
+                    }}
+                    error={errors.firstName}
+                  />
+                  <PillField
+                    flex
+                    height={48}
+                    placeholder="Middle (optional)"
+                    autoComplete="name-middle"
+                    value={middleName}
+                    onChangeText={setMiddleName}
+                  />
+                </View>
+                <PillField
+                  height={48}
+                  placeholder="Last name"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChangeText={(t) => {
+                    setLastName(t);
+                    clearError('lastName');
+                  }}
+                  error={errors.lastName}
+                />
+                <PillField
+                  height={48}
+                  icon="mail"
+                  placeholder="Email address"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  value={email}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    clearError('email');
+                  }}
+                  error={errors.email}
+                />
+                <PillField
+                  height={48}
+                  icon="lock"
+                  placeholder="Password"
+                  secure
+                  autoComplete="new-password"
+                  value={password}
+                  onChangeText={(t) => {
+                    // Slide the checklist in on the first character, out when cleared
+                    if (!t !== !password) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setPassword(t);
+                    clearError('password');
+                  }}
+                  error={errors.password}
+                />
+                {showRules && <PasswordRules password={password} style={styles.rulesBox} />}
+                <PillField
+                  height={48}
+                  icon="lock"
+                  placeholder="Confirm password"
+                  secure
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChangeText={(t) => {
+                    setConfirmPassword(t);
+                    clearError('confirmPassword');
+                  }}
+                  error={
+                    errors.confirmPassword ||
+                    (confirmPassword.length >= password.length && confirmPassword && confirmPassword !== password
+                      ? 'Passwords do not match'
+                      : undefined)
+                  }
+                />
+                <View>
+                  <CheckBox
+                    checked={agree}
+                    onToggle={() => {
+                      setAgree((a) => !a);
+                      clearError('agree');
+                    }}
+                  >
+                    <Text style={[styles.chkText, styles.flex1]}>
+                      I agree to the <Text style={styles.inlineLink}>Terms of Service</Text> and{' '}
+                      <Text style={styles.inlineLink}>Privacy Policy</Text>
+                    </Text>
+                  </CheckBox>
+                  {!!errors.agree && <Text style={styles.errorText}>{errors.agree}</Text>}
+                </View>
+              </Rise>
+
+              <Rise delay={420}>
+                <PrimaryButton title="Create account" loading={loading} onPress={handleSubmit} style={{ marginTop: 16 }} />
+              </Rise>
+            </>
+          )}
+
+          <Rise delay={420} style={[styles.footer, { paddingTop: isLogin ? 18 : 14 }]}>
+            <Text style={styles.footerText}>
+              {isLogin ? 'New to Resync? ' : 'Have an account? '}
+              <Text style={styles.footerLink} onPress={switchMode}>
+                {isLogin ? 'Create account' : 'Sign in'}
+              </Text>
+            </Text>
+          </Rise>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
+const PrimaryButton: React.FC<{ title: string; loading: boolean; onPress: () => void; style?: object }> = ({
+  title,
+  loading,
+  onPress,
+  style,
+}) => (
+  <PressableScale onPress={onPress} disabled={loading} style={[styles.primaryBtn, style]}>
+    {loading ? (
+      <ActivityIndicator color="#FFFFFF" />
+    ) : (
+      <>
+        <Text style={styles.primaryText}>{title}</Text>
+        <LineIcon name="arrowRight" size={16} color="#FFFFFF" />
+      </>
+    )}
+  </PressableScale>
+);
+
+const OrDivider: React.FC<{ label: string; style?: object }> = ({ label, style }) => (
+  <View style={[styles.orRow, style]}>
+    <View style={styles.orLine} />
+    <Text style={styles.orText}>{label}</Text>
+    <View style={styles.orLine} />
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
+  page: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
-  header: {
+  flex1: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerRow: {
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  brandTile: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandR: {
-    fontFamily: fonts.sans[800],
-    fontSize: 16,
-    color: colors.white,
-    lineHeight: 18,
-  },
-  brandTitle: {
-    fontFamily: fonts.sans[700],
-    fontSize: 18,
-    color: '#0F172A',
-    letterSpacing: -0.3,
-  },
-  headerSpacer: {
-    width: 38,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-  },
-  titleSection: {
-    marginBottom: 20,
-  },
-  titleText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 28,
-    color: '#0F172A',
-    letterSpacing: -0.5,
-  },
-  subtitleText: {
-    fontFamily: fonts.sans[400],
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 6,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
-  },
-  socialBtn: {
-    flex: 1,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: colors.white,
-    flexDirection: 'row',
+    borderColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logo: {
+    width: 96,
+    height: 47,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  sheet: {
+    flex: 1,
+    marginTop: -26,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    shadowColor: C.ink,
+    shadowOffset: { width: 0, height: -20 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 24,
+    overflow: 'hidden',
+  },
+  sheetContent: {
+    flexGrow: 1,
+    paddingTop: 24,
+    paddingHorizontal: 22,
+  },
+  eyebrow: {
+    fontFamily: fonts.mono[500],
+    fontSize: 11,
+    letterSpacing: 1.54,
+    color: C.brand,
+  },
+  title: {
+    marginTop: 6,
+    marginBottom: 6,
+    fontFamily: fonts.sans[800],
+    fontSize: 30,
+    lineHeight: 33,
+    letterSpacing: -0.6,
+    color: C.ink,
+  },
+  titleSignup: {
+    marginBottom: 4,
+    fontSize: 28,
+    lineHeight: 31,
+    letterSpacing: -0.56,
+  },
+  sub: {
+    fontFamily: fonts.sans[400],
+    fontSize: 14,
+    lineHeight: 21,
+    color: C.sub,
+  },
+  subSignup: {
+    fontSize: 13.5,
+    lineHeight: 20,
+  },
+  loginFields: {
+    marginTop: 20,
+    gap: 12,
+  },
+  signupFields: {
+    marginTop: 16,
+    gap: 11,
+  },
+  nameRow: {
+    flexDirection: 'row',
     gap: 10,
   },
-  socialBtnText: {
-    fontFamily: fonts.sans[700],
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  dividerRow: {
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    gap: 11,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: '#FFFFFF',
   },
-  dividerLine: {
+  pillFocused: {
+    borderColor: C.brand,
+  },
+  pillInput: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#E2E8F0',
+    minWidth: 0,
+    paddingVertical: 0,
+    fontFamily: fonts.sans[400],
+    fontSize: 15,
+    color: C.ink,
   },
-  dividerText: {
+  errorText: {
+    marginTop: 5,
+    marginLeft: 16,
     fontFamily: fonts.sans[500],
-    fontSize: 11,
-    color: '#94A3B8',
-    paddingHorizontal: 12,
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  form: {
-    gap: 14,
-    marginTop: 8,
-  },
-  forgotText: {
-    fontFamily: fonts.sans[700],
     fontSize: 12,
-    color: '#2563EB',
+    color: C.error,
   },
-  agreementWrapper: {
-    marginTop: 2,
-    marginBottom: 4,
+  rulesBox: {
+    marginTop: -3,
   },
-  agreementRow: {
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  chkRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 11,
   },
-  agreementText: {
-    flex: 1,
-    fontFamily: fonts.sans[400],
-    fontSize: 11.5,
-    color: '#64748B',
-    lineHeight: 16,
-  },
-  agreeError: {
-    fontFamily: fonts.sans[400],
-    fontSize: 12,
-    color: '#DC2626',
-    marginTop: 4,
-  },
-  submitBtn: {
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: '#2563EB',
-    marginTop: 6,
-    elevation: 4,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-  },
-  switchRow: {
+  chkBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: C.box,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 22,
-    paddingVertical: 4,
   },
-  switchText: {
+  chkBoxOn: {
+    backgroundColor: C.brand,
+    borderColor: C.brand,
+  },
+  chkText: {
     fontFamily: fonts.sans[400],
-    fontSize: 13.5,
-    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 19,
+    color: C.label,
   },
-  switchHighlight: {
+  link: {
     fontFamily: fonts.sans[700],
-    color: '#2563EB',
+    fontSize: 13.5,
+    color: C.brand,
+  },
+  inlineLink: {
+    color: C.brand,
+    fontFamily: fonts.sans[600],
+  },
+  primaryBtn: {
+    height: 54,
+    borderRadius: 999,
+    backgroundColor: C.brand,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    shadowColor: C.brand,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.5,
+    shadowRadius: 13,
+    elevation: 8,
+  },
+  primaryText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 15.5,
+    color: '#FFFFFF',
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: C.line,
+  },
+  orText: {
+    fontFamily: fonts.sans[700],
+    fontSize: 11.5,
+    letterSpacing: 1.15,
+    color: C.or,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 11,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: '#FFFFFF',
+  },
+  googleText: {
+    fontFamily: fonts.sans[700],
+    fontSize: 15,
+    color: C.ink,
+  },
+  footer: {
+    marginTop: 'auto',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontFamily: fonts.sans[400],
+    fontSize: 14,
+    color: C.sub,
+  },
+  footerLink: {
+    fontFamily: fonts.sans[800],
+    color: C.brand,
   },
 });
