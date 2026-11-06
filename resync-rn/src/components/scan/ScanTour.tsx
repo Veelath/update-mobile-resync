@@ -27,11 +27,11 @@ export const TOUR_STEPS = [
   },
   {
     title: 'Confirm your document',
-    body: 'Check the file name, page count and preview. Wrong file? Choose a different one before any credit is used.',
+    body: 'Check the file name, word count and preview. Wrong file? Choose a different one before any credit is used.',
   },
   {
     title: 'Run the scan',
-    body: 'One credit checks how every chapter connects. When it finishes, your report opens with the findings.',
+    body: 'The scan and its preview are free. When it finishes, your report opens and one credit unlocks every finding.',
   },
 ];
 

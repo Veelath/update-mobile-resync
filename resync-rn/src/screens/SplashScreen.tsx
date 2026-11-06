@@ -5,6 +5,7 @@ import { RootStackParamList } from '../navigation/types';
 import { getSession } from '../services/session';
 import { BrandBackdrop } from '../components/BrandBackdrop';
 import { fonts } from '../theme/colors';
+import { brand } from '../theme/brand';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Splash'>;
@@ -15,6 +16,7 @@ const T = (pct: number) => pct * 50;
 const easeOut = Easing.bezier(0.22, 1, 0.36, 1);
 const easeInOut = Easing.bezier(0.65, 0, 0.35, 1);
 
+const LOGO_BLUE = '#0010AD';
 const MARK_OFFSET = 62;
 const WORDMARK_WIDTH = 125;
 
@@ -70,14 +72,14 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <BrandBackdrop
-      angle={165}
+      light
       style={styles.container}
       glows={[
-        { size: 300, color: '#4C7DFF', opacity: 0.45, position: { left: -90, top: -60 } },
-        { size: 260, color: '#2F6BFF', opacity: 0.7, position: { right: -80, bottom: 90 }, delay: 5000 },
+        { size: 300, color: '#C9CCFF', opacity: 0.45, position: { left: -90, top: -60 } },
+        { size: 260, color: '#D9DBFF', opacity: 0.6, position: { right: -80, bottom: 90 }, delay: 5000 },
       ]}
     >
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
       <View style={styles.content}>
         <View style={styles.lockup}>
@@ -134,6 +136,7 @@ const styles = StyleSheet.create({
   mark: {
     height: 96,
     width: 72,
+    tintColor: LOGO_BLUE,
   },
   wordmarkSlot: {
     width: WORDMARK_WIDTH,
@@ -147,13 +150,14 @@ const styles = StyleSheet.create({
     height: 96,
     width: 111,
     marginLeft: 14,
+    tintColor: LOGO_BLUE,
   },
   tagline: {
     marginTop: 26,
     fontFamily: fonts.sans[400],
     fontSize: 14.5,
     lineHeight: 22,
-    color: '#BFD0FF',
+    color: brand.sub,
     textAlign: 'center',
   },
 });

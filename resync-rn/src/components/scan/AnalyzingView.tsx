@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Image, StatusBar } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Animated, Easing, Image, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import * as SvgModule from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '../../theme/colors';
 import { brand } from '../../theme/brand';
 import { LineIcon } from '../LineIcon';
+import { PressableScale } from '../PressableScale';
 import { Rise } from '../Rise';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
@@ -13,12 +14,16 @@ const { Defs, Pattern, Circle, Rect, RadialGradient, Stop, Mask } = SvgModule;
 
 const CHECKS = [
   { title: 'Reading your manuscript', sub: 'Extracting chapters and sections', status: 'Reading your manuscript…' },
-  { title: 'Comparing consecutive sections', sub: 'Finding weak links or conflicts', status: 'Comparing sections…' },
+  { title: 'Checking section links', sub: 'Finding weak links or conflicts', status: 'Checking section links…' },
   { title: 'Verifying citation access', sub: 'Checking that references are reachable', status: 'Verifying citations…' },
-  { title: 'Finalizing your report', sub: 'Summarizing section links and citations', status: 'Finalizing your report…' },
+  {
+    title: 'Generating AI Recommendations',
+    sub: 'The AI is reviewing each pair of sections. This can take a little longer.',
+    status: 'Generating AI Recommendations…',
+  },
 ];
 
-const TOTAL_MS = 10000;
+const TOTAL_MS = 14000;
 const QUARTER = 100 / CHECKS.length;
 // A check shows its green tick for the last slice of its quarter before the next one slides in
 const DONE_AT = QUARTER - 4;
@@ -39,9 +44,12 @@ const useLoop = (duration: number, { delay = 0, easing = Easing.linear } = {}) =
 const Spinner: React.FC = () => {
   const spin = useLoop(900);
   return (
-    <Animated.View
-      style={[styles.spinner, { transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]}
-    />
+    <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
+      <Svg width={30} height={30} viewBox="0 0 30 30" fill="none">
+        <Circle cx={15} cy={15} r={13.5} stroke="#E4E2FF" strokeWidth={3} />
+        <Circle cx={15} cy={15} r={13.5} stroke={brand.primary} strokeWidth={3} strokeDasharray="21 64" />
+      </Svg>
+    </Animated.View>
   );
 };
 
@@ -84,7 +92,7 @@ const CheckRow: React.FC<{ index: number; done: boolean; leaving: boolean }> = (
   );
 };
 
-export const AnalyzingView: React.FC<{ onDone: () => void }> = ({ onDone }) => {
+export const AnalyzingView: React.FC<{ onDone: () => void; onBackground: () => void }> = ({ onDone, onBackground }) => {
   const insets = useSafeAreaInsets();
   const progress = useRef(new Animated.Value(0)).current;
   const [pct, setPct] = useState(0);
@@ -92,8 +100,7 @@ export const AnalyzingView: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 
   const pulseA = useLoop(2800, { easing: Easing.out(Easing.ease) });
   const pulseB = useLoop(2800, { delay: 1400, easing: Easing.out(Easing.ease) });
-  const orbit = useLoop(26000);
-  const orbitReverse = useLoop(38000);
+  const orbit = useLoop(38000);
   const shine = useLoop(1800, { easing: Easing.inOut(Easing.ease) });
 
   useEffect(() => {
@@ -155,26 +162,18 @@ export const AnalyzingView: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <Rect width="100%" height="100%" fill="url(#aDots)" mask="url(#aMask)" />
       </Svg>
 
-      <View style={[styles.main, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 16 }]}>
+      <ScrollView
+        contentContainerStyle={[styles.main, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 16 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <Rise delay={100} style={styles.orb}>
           <Animated.View style={[styles.pulse, pulseStyle(pulseA)]} />
           <Animated.View style={[styles.pulse, styles.pulseSoft, pulseStyle(pulseB)]} />
           <Animated.View
-            style={[styles.orbitLayer, { transform: [{ rotate: orbit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]}
+            style={[styles.orbitLayer, { transform: [{ rotate: orbit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] }) }] }]}
           >
-            <Svg width={220} height={220} viewBox="0 0 100 100" fill="none">
-              <Circle cx={50} cy={50} r={48} stroke="#C9C6F6" strokeWidth={0.5} strokeDasharray="1.2 2.4" strokeLinecap="round" />
-              <Circle cx={50} cy={2} r={2.3} fill={brand.primary} />
-            </Svg>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.orbitLayer,
-              { transform: [{ rotate: orbitReverse.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] }) }] },
-            ]}
-          >
-            <Svg width={220} height={220} viewBox="0 0 100 100" fill="none">
-              <Circle cx={50} cy={50} r={48} stroke={brand.primary} strokeWidth={1.6} strokeLinecap="round" strokeDasharray="30 271" opacity={0.85} />
+            <Svg width={176} height={176} viewBox="0 0 100 100" fill="none">
+              <Circle cx={50} cy={50} r={48} stroke={brand.primary} strokeWidth={3} strokeLinecap="round" strokeDasharray="64 238" opacity={0.85} />
             </Svg>
           </Animated.View>
           <View style={styles.core}>
@@ -184,7 +183,7 @@ export const AnalyzingView: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 
         <Rise delay={250} style={styles.center}>
           <Text style={styles.title}>Analyzing your manuscript</Text>
-          <Text style={styles.sub}>Running {CHECKS.length} checks across consecutive sections</Text>
+          <Text style={styles.sub}>Running {CHECKS.length} checks as a holistic manuscript analysis</Text>
         </Rise>
 
         <Rise delay={400} style={styles.card}>
@@ -225,9 +224,15 @@ export const AnalyzingView: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 
         <Rise delay={400} style={styles.footer}>
           <LineIcon name="clock" size={15} color={brand.muted} />
-          <Text style={styles.footerText}>This can take a moment. Please keep the app open.</Text>
+          <Text style={styles.footerText}>This can take a moment. You can leave this page; we will tell you when your report is ready.</Text>
         </Rise>
-      </View>
+
+        <Rise delay={400}>
+          <PressableScale onPress={onBackground} style={styles.backgroundBtn}>
+            <Text style={styles.backgroundText}>Continue in background</Text>
+          </PressableScale>
+        </Rise>
+      </ScrollView>
     </View>
   );
 };
@@ -242,7 +247,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   main: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     paddingHorizontal: 24,
   },
@@ -265,7 +270,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(43,37,200,0.12)',
   },
   orbitLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 22,
+    left: 22,
   },
   core: {
     width: 144,
@@ -401,14 +408,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: brand.hint,
   },
-  spinner: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 3,
-    borderColor: '#E4E2FF',
-    borderTopColor: brand.primary,
-  },
   tick: {
     width: 30,
     height: 30,
@@ -419,13 +418,32 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 22,
+    maxWidth: 330,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
   },
   footerText: {
+    flexShrink: 1,
     fontFamily: fonts.sans[400],
-    fontSize: 13.5,
+    fontSize: 13,
+    lineHeight: 19,
     color: brand.muted,
+  },
+  backgroundBtn: {
+    marginTop: 14,
+    height: 44,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CFCDF3',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backgroundText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 14,
+    color: brand.primary,
   },
 });

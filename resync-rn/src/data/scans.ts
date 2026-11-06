@@ -8,6 +8,7 @@ export interface ScanItem {
   isGoogleDoc?: boolean;
   versionName?: string;
   heavy?: boolean;
+  unlocked?: boolean; // false while only the free preview is available; older scans have no flag and stay open
 }
 
 export const INITIAL_SCANS: ScanItem[] = [

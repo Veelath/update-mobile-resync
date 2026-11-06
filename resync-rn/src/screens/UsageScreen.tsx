@@ -93,14 +93,14 @@ export const UsageScreen: React.FC = () => {
           </View>
           <View style={[cardStyle, styles.stat]}>
             <Text style={[styles.statValue, { color: '#C77A0B' }]}>{CREDITS_PER_SCAN}</Text>
-            <Text style={styles.statLabel}>Credit per scan</Text>
+            <Text style={styles.statLabel}>Credit per report</Text>
           </View>
         </Rise>
 
         {/* Call to action */}
         <Rise delay={280} style={[cardStyle, styles.pad18]}>
           <Text style={styles.cardTitle}>Ready to review a manuscript?</Text>
-          <Text style={styles.cardSub}>Each complete coherence scan uses one credit.</Text>
+          <Text style={styles.cardSub}>Scan previews are free. Unlocking a full report uses one credit.</Text>
           <View style={styles.ctaRow}>
             <PressableScale onPress={comingSoon} style={[styles.btn, styles.btnGhost]}>
               <Text style={styles.btnGhostText}>Buy credits</Text>
@@ -135,7 +135,7 @@ export const UsageScreen: React.FC = () => {
                       {s.title}
                     </Text>
                     <Text style={styles.recentMeta}>
-                      {s.date} · {CREDITS_PER_SCAN} credit
+                      {s.date} · {s.unlocked === false ? 'Free preview' : `${CREDITS_PER_SCAN} credit`}
                     </Text>
                   </View>
                   <LineIcon name="arrowRight" size={16} color={brand.icon} />

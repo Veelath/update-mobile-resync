@@ -36,6 +36,12 @@ export async function saveNewScan(newScan: ScanItem): Promise<ScanItem[]> {
   return updated;
 }
 
+export async function unlockScan(id: string): Promise<void> {
+  const current = await getAllScans();
+  const updated = current.map((s) => (s.id === id ? { ...s, unlocked: true } : s));
+  await AsyncStorage.setItem(SCANS_STORAGE_KEY, JSON.stringify(updated));
+}
+
 export async function loginUser(req: AuthLoginRequest): Promise<AuthResponse> {
   if (config.USE_MOCK) {
     return {

@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  TextStyle,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -23,8 +24,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
 import { brand, cardStyle } from '../theme/brand';
-import { getSession, saveSession, creditsAvailable, incrementScansCount, UserSession } from '../services/session';
+import { getSession, saveSession, creditsAvailable, UserSession } from '../services/session';
 import { saveNewScan } from '../services/scanRepository';
+import { MANUSCRIPT_BLOCKS, ManuscriptBlock, overallScore, PAPER_SECTIONS, SCORE_CATEGORIES, TITLE_PAGE } from '../data/report';
 import { AppHeader, initialsOf } from '../components/AppHeader';
 import { LineIcon, LineIconName } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
@@ -41,11 +43,11 @@ const WORD_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword',
 ];
+const WORD_COUNT = PAPER_SECTIONS.reduce((sum, s) => sum + s.words, 0).toLocaleString('en-US');
 // Shown on the confirm step while the tour walks through it without a real document
-const DEMO_DOC = { name: 'Resync_Capstone_Manuscript_v3.docx', meta: '2.4 MB · 86 pages · ~18,400 words' };
+const DEMO_DOC = { name: 'Resync_Capstone_Manuscript_v3.docx', meta: `Word file · 2.4 MB · ~${WORD_COUNT} words` };
 // Which flow step sits behind each tour step
 const TOUR_PHASE: Phase[] = ['template', 'template', 'upload', 'confirm', 'confirm'];
-const PREVIEW_LINES = ['96%', '88%', '100%', '72%', '94%', '100%', '84%', '60%'];
 
 const pickWordFile = async (): Promise<PickedFile | 'too-big' | null> => {
   try {
@@ -61,6 +63,11 @@ const pickWordFile = async (): Promise<PickedFile | 'too-big' | null> => {
     // No native picker available (e.g. simulator without one): fall back to a sample file
     return { name: 'Academic_Burnout_Study_Final.docx', sizeMb: 2.4 };
   }
+};
+
+const checkGdocsLink = (text: string): GdocsStatus => {
+  if (text.includes('Pr1vat3')) return 'private';
+  return text.includes('docs.google.com/document') || text.includes('demo') ? 'ok' : 'invalid';
 };
 
 const formatMb = (mb: number) => `${(mb > 0 ? mb : 0.1).toFixed(1)} MB`;
@@ -140,6 +147,10 @@ export const UploadScreen: React.FC = () => {
   const [gdocsUrl, setGdocsUrl] = useState('');
   const [gdocsStatus, setGdocsStatus] = useState<GdocsStatus>('idle');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [linkDraft, setLinkDraft] = useState('');
+  const [linkDraftStatus, setLinkDraftStatus] = useState<GdocsStatus>('idle');
+  // Set while the user is elsewhere in the app, so a finished scan offers the report instead of taking over the screen
+  const backgrounded = useRef(false);
 
   // Guided tour
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -162,6 +173,7 @@ export const UploadScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      backgrounded.current = false;
       getSession().then((s) => {
         setSession(s);
         if (!s.hasSeenScanTour) {
@@ -252,11 +264,7 @@ export const UploadScreen: React.FC = () => {
       return;
     }
     setGdocsStatus('checking');
-    debounce.current = setTimeout(() => {
-      if (text.includes('Pr1vat3')) setGdocsStatus('private');
-      else if (text.includes('docs.google.com/document') || text.includes('demo')) setGdocsStatus('ok');
-      else setGdocsStatus('invalid');
-    }, 900);
+    debounce.current = setTimeout(() => setGdocsStatus(checkGdocsLink(text)), 900);
   };
 
   const uploadValid = source === 'file' ? !!file : gdocsStatus === 'ok';
@@ -266,40 +274,57 @@ export const UploadScreen: React.FC = () => {
   const doc = touringConfirm
     ? { ...DEMO_DOC, source: 'file' as Source }
     : source === 'file'
-      ? { name: file?.name ?? '', meta: `${formatMb(file?.sizeMb ?? 0)} · Word document`, source }
-      : { name: 'Google Docs manuscript', meta: gdocsUrl.replace(/^https?:\/\//, ''), source };
+      ? { name: file?.name ?? '', meta: `Word file · ${formatMb(file?.sizeMb ?? 0)} · ~${WORD_COUNT} words`, source }
+      : { name: 'Google Docs manuscript', meta: `Google Doc · ~${WORD_COUNT} words`, source };
 
-  const runScan = () => {
-    if (session && creditsAvailable(session) < 1) {
-      Alert.alert('No credits left', 'Each scan uses one credit. Top up to keep scanning.', [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'View credits', onPress: () => tabNav.navigate('Credits') },
-      ]);
-      return;
-    }
-    goTo('analyzing');
+  const linkDirty = !!linkDraft.trim() && linkDraft.trim() !== gdocsUrl.trim();
+
+  useEffect(() => {
+    if (phase !== 'confirm') return;
+    setLinkDraft(gdocsUrl);
+    setLinkDraftStatus('idle');
+  }, [phase, gdocsUrl]);
+
+  const updateLink = () => {
+    const next = linkDraft.trim();
+    const status = checkGdocsLink(next);
+    if (status === 'ok') setGdocsUrl(next);
+    else setLinkDraftStatus(status);
+  };
+
+  const continueInBackground = () => {
+    backgrounded.current = true;
+    tabNav.navigate('Home');
   };
 
   const finishScan = useCallback(async () => {
-    await incrementScansCount();
+    const id = `scan_${Date.now()}`;
     const title = source === 'file' ? file?.name ?? 'Manuscript.docx' : 'Google Docs manuscript';
     await saveNewScan({
-      id: `scan_${Date.now()}`,
+      id,
       title,
       status: 'Initial scan',
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      score: 74,
+      score: overallScore(SCORE_CATEGORIES),
       url: title.toLowerCase().replace(/[^a-z0-9]/g, '_'),
       isGoogleDoc: source === 'gdocs',
       heavy: false,
+      unlocked: false,
     });
     resetFlow();
+    if (backgrounded.current) {
+      Alert.alert('Your report is ready', title, [
+        { text: 'Later', style: 'cancel' },
+        { text: 'View report', onPress: () => rootNav.push('Report', { scanId: id }) },
+      ]);
+      return;
+    }
     tabNav.navigate('Home');
-    rootNav.push('Report', { heavy: false });
+    rootNav.push('Report', { scanId: id });
   }, [source, file, tabNav, rootNav]);
 
   if (phase === 'analyzing') {
-    return <AnalyzingView onDone={finishScan} />;
+    return <AnalyzingView onDone={finishScan} onBackground={continueInBackground} />;
   }
 
   const stepIndex = phase === 'template' ? 0 : phase === 'upload' ? 1 : 2;
@@ -382,7 +407,7 @@ export const UploadScreen: React.FC = () => {
               </View>
               <SummaryRow label="Chapters" value={template ? 'From template' : 'Auto-detected'} />
               <SummaryRow label="Sections" value={template ? 'From template' : 'Auto-detected'} />
-              <SummaryRow label="Credit cost" value="1 credit" valueColor="#0B9F6E" />
+              <SummaryRow label="Full report unlock" value="1 credit" />
             </View>
 
             <Callout
@@ -506,43 +531,87 @@ export const UploadScreen: React.FC = () => {
               })}
             </View>
 
-            <View ref={targets.confirmDoc} collapsable={false} style={styles.confirmDoc}>
-              <View style={[cardStyle, styles.docCard]}>
+            <Text style={styles.eyebrowSmall}>
+              {doc.source === 'file' ? 'YOUR WORD FILE' : 'YOUR GOOGLE DOC'} · SCROLL TO READ IT
+            </Text>
+            <View ref={targets.confirmDoc} collapsable={false} style={styles.viewer}>
+              <ScrollView nestedScrollEnabled persistentScrollbar contentContainerStyle={styles.viewerPage}>
+                <Text style={styles.pageTitle}>{TITLE_PAGE.title}</Text>
+                {TITLE_PAGE.lines.map((line) => (
+                  <Text key={line} style={styles.pageCentered}>
+                    {line}
+                  </Text>
+                ))}
+                <View style={styles.pageBody}>
+                  {MANUSCRIPT_BLOCKS.map((b, i) => (
+                    <Text key={i} style={PAGE_TEXT[b.kind]}>
+                      {b.text}
+                    </Text>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View style={[cardStyle, styles.docCard]}>
+              <View style={styles.docHead}>
                 <View style={[styles.ic, styles.docIcon]}>
-                  <LineIcon name={doc.source === 'file' ? 'docLines' : 'linkAlt'} size={20} color={brand.primary} />
+                  <LineIcon name="docLines" size={22} color={brand.primary} />
                 </View>
                 <View style={styles.flex1}>
                   <Text style={styles.docName}>{doc.name}</Text>
-                  <Text style={styles.docMeta} numberOfLines={1}>
-                    {doc.meta}
-                  </Text>
+                  <Text style={styles.docMeta}>{doc.meta}</Text>
                 </View>
               </View>
-
-              <View style={styles.paper}>
-                <Text style={styles.paperKicker}>CHAPTER 1</Text>
-                <Text style={styles.paperTitle}>Introduction</Text>
-                {PREVIEW_LINES.map((w, i) => (
-                  <View key={i} style={[styles.paperLine, { width: w as any }]} />
-                ))}
-                <LinearGradient colors={['rgba(255,255,255,0)', '#FFFFFF']} style={styles.paperFade} pointerEvents="none" />
-              </View>
+              {doc.source === 'gdocs' && (
+                <View style={styles.linkEdit}>
+                  <Text style={styles.eyebrowSmall}>EDIT THE LINK</Text>
+                  <TextInput
+                    value={linkDraft}
+                    onChangeText={(text) => {
+                      setLinkDraft(text);
+                      setLinkDraftStatus('idle');
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    style={styles.linkInput}
+                  />
+                  <GdocsHint status={linkDraftStatus} />
+                  <Pressable onPress={updateLink} disabled={!linkDirty} style={[styles.updateBtn, linkDirty && styles.updateBtnOn]}>
+                    <Text style={[styles.updateText, linkDirty && { color: brand.primary }]}>Update link</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
-            <View style={[cardStyle, styles.checks]}>
-              {(doc.source === 'file'
-                ? ['File opens correctly', `Under the ${MAX_MB} MB limit`]
-                : ['Link opens correctly', 'Sharing is set to “Anyone with the link can view”']
-              )
-                .concat(template ? 'Chapter headings taken from your template' : 'Chapter headings detected automatically')
-                .map((t) => (
-                  <View key={t} style={styles.checkRow}>
-                    <View style={styles.checkIcon}>
-                      <LineIcon name="check" size={13} color={brand.success} strokeWidth={2.6} />
+            <View style={[cardStyle, styles.cardPad]}>
+              <View style={styles.summaryHead}>
+                <Text style={styles.eyebrowSmall}>PAPER STRUCTURE</Text>
+                <Text style={styles.sectionsPill}>{PAPER_SECTIONS.length} sections</Text>
+              </View>
+              <ScrollView nestedScrollEnabled persistentScrollbar style={styles.sectionList}>
+                {PAPER_SECTIONS.map((s, i) => (
+                  <View key={s.title} style={styles.sectionRow}>
+                    <View style={styles.sectionNum}>
+                      <Text style={styles.sectionNumText}>{i + 1}</Text>
                     </View>
-                    <Text style={styles.checkText}>{t}</Text>
+                    <Text style={styles.sectionTitle} numberOfLines={1}>
+                      {s.title}
+                    </Text>
+                    <Text style={styles.sectionWords}>{s.words.toLocaleString('en-US')} words</Text>
                   </View>
                 ))}
+              </ScrollView>
+            </View>
+
+            <View style={[cardStyle, styles.cardPad, styles.scanSummary]}>
+              <Text style={styles.eyebrowSmall}>SCAN SUMMARY</Text>
+              <View>
+                <SummaryRow label="Chapter template" value={template ? 'From template' : 'Auto-detect'} valueColor={brand.primary} />
+                <SummaryRow label="Scan preview" value="Free" valueColor="#0B9F6E" />
+                <SummaryRow label="Full report unlock" value="1 credit" />
+                <SummaryRow label="Your credits" value={session ? String(creditsAvailable(session)) : '–'} />
+              </View>
             </View>
           </StepFade>
         )}
@@ -568,7 +637,7 @@ export const UploadScreen: React.FC = () => {
         {phase === 'confirm' && (
           <>
             <View ref={targets.runButton} collapsable={false}>
-              <PrimaryButton label="Yes, run scan · 1 credit" onPress={runScan} />
+              <PrimaryButton label="Yes, run coherence scan" onPress={() => goTo('analyzing')} />
             </View>
             <GhostButton label="Choose a different document" onPress={() => goTo('upload')} />
           </>
@@ -981,14 +1050,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: brand.muted,
   },
-  confirmDoc: {
-    gap: 12,
+  eyebrowSmall: {
+    fontFamily: fonts.mono[500],
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: brand.muted,
+  },
+  viewer: {
+    height: 300,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: brand.line,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  viewerPage: {
+    paddingVertical: 26,
+    paddingHorizontal: 34,
+    gap: 30,
+  },
+  pageTitle: {
+    fontFamily: 'serif',
+    fontWeight: '700',
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#111111',
+    textAlign: 'center',
+  },
+  pageCentered: {
+    fontFamily: 'serif',
+    fontSize: 10,
+    lineHeight: 15,
+    color: '#111111',
+    textAlign: 'center',
+  },
+  pageBody: {
+    gap: 8,
+  },
+  pageChapter: {
+    marginTop: 8,
+    fontFamily: 'serif',
+    fontWeight: '700',
+    fontSize: 11,
+    color: '#111111',
+    textAlign: 'center',
+  },
+  pageHeading: {
+    marginTop: 4,
+    fontFamily: 'serif',
+    fontWeight: '700',
+    fontSize: 10,
+    color: '#111111',
+  },
+  pageText: {
+    fontFamily: 'serif',
+    fontSize: 10,
+    lineHeight: 15,
+    color: '#111111',
+    textAlign: 'justify',
   },
   docCard: {
+    padding: 16,
+    gap: 14,
+  },
+  docHead: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    padding: 16,
   },
   docIcon: {
     width: 52,
@@ -1003,68 +1131,93 @@ const styles = StyleSheet.create({
   docMeta: {
     marginTop: 5,
     fontFamily: fonts.mono[400],
-    fontSize: 11.5,
+    fontSize: 11,
     color: brand.muted,
   },
-  paper: {
-    height: 96,
-    paddingVertical: 16,
-    paddingHorizontal: 22,
-    gap: 11,
+  linkEdit: {
+    gap: 8,
+  },
+  linkInput: {
+    height: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: brand.line,
+    borderColor: brand.border,
     backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  paperKicker: {
-    fontFamily: fonts.sans[700],
-    fontSize: 11,
-    letterSpacing: 1.54,
-    color: brand.placeholder,
-    textAlign: 'center',
-  },
-  paperTitle: {
-    marginBottom: 6,
-    fontFamily: fonts.sans[800],
-    fontSize: 16,
+    fontFamily: fonts.sans[400],
+    fontSize: 14,
     color: brand.ink,
-    textAlign: 'center',
   },
-  paperLine: {
-    height: 9,
-    borderRadius: 6,
-    backgroundColor: '#E9E8F5',
-  },
-  paperFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 70,
-  },
-  checks: {
-    padding: 16,
-    gap: 12,
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-  },
-  checkIcon: {
-    width: 22,
-    height: 22,
+  updateBtn: {
+    marginTop: 2,
+    height: 40,
     borderRadius: 11,
-    backgroundColor: brand.successTint,
+    borderWidth: 1,
+    borderColor: brand.border,
+    backgroundColor: '#F6F5FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkText: {
+  updateBtnOn: {
+    borderColor: brand.primary,
+    backgroundColor: brand.tint,
+  },
+  updateText: {
+    fontFamily: fonts.sans[700],
+    fontSize: 13,
+    color: brand.placeholder,
+  },
+  sectionsPill: {
+    height: 24,
+    lineHeight: 24,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: brand.tint,
+    fontFamily: fonts.sans[700],
+    fontSize: 11.5,
+    color: brand.primary,
+  },
+  sectionList: {
+    height: 180,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    paddingRight: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: brand.softLine,
+  },
+  sectionNum: {
+    width: 21,
+    height: 21,
+    borderRadius: 6,
+    backgroundColor: brand.tint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionNumText: {
+    fontFamily: fonts.sans[700],
+    fontSize: 10.5,
+    color: brand.primary,
+  },
+  sectionTitle: {
     flex: 1,
-    fontFamily: fonts.sans[600],
-    fontSize: 13.5,
-    color: '#2E2C52',
+    minWidth: 0,
+    fontFamily: fonts.sans[700],
+    fontSize: 13,
+    color: brand.ink,
+  },
+  sectionWords: {
+    fontFamily: fonts.sans[400],
+    fontSize: 11.5,
+    color: brand.hint,
+  },
+  scanSummary: {
+    gap: 8,
   },
 
   // Sticky bar
@@ -1118,3 +1271,9 @@ const styles = StyleSheet.create({
     color: brand.ink,
   },
 });
+
+const PAGE_TEXT: Record<ManuscriptBlock['kind'], TextStyle> = {
+  chapter: styles.pageChapter,
+  heading: styles.pageHeading,
+  text: styles.pageText,
+};

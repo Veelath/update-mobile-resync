@@ -19,16 +19,17 @@ export interface Glow {
 interface Props {
   angle?: number; // 165 on splash, 170 on welcome hero
   mid?: number; // middle colour stop; 0.62 on the auth headers
+  light?: boolean; // white page with indigo dots instead of the deep-blue gradient (splash)
   glows?: Glow[];
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 }
 
 /**
- * Deep-blue brand backdrop: diagonal gradient, slowly drifting dot grid,
+ * Brand backdrop: deep-blue diagonal gradient (or plain white), slowly drifting dot grid,
  * and soft blurred glows (approximated with radial gradients).
  */
-export const BrandBackdrop: React.FC<Props> = ({ angle = 165, mid, glows = [], style, children }) => {
+export const BrandBackdrop: React.FC<Props> = ({ angle = 165, mid, light = false, glows = [], style, children }) => {
   const dots = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -52,14 +53,16 @@ export const BrandBackdrop: React.FC<Props> = ({ angle = 165, mid, glows = [], s
   const dotShift = dots.interpolate({ inputRange: [0, 1], outputRange: [0, DOT_GAP] });
 
   return (
-    <View style={[styles.root, style]}>
-      <LinearGradient
-        colors={['#06115F', '#1229B8', '#2A52F0']}
-        locations={[0, mid ?? (angle >= 170 ? 0.55 : 0.52), 1]}
-        start={{ x: 0.5 - dx, y: 0.5 - dy }}
-        end={{ x: 0.5 + dx, y: 0.5 + dy }}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={[styles.root, light && styles.rootLight, style]}>
+      {!light && (
+        <LinearGradient
+          colors={['#06115F', '#1229B8', '#2A52F0']}
+          locations={[0, mid ?? (angle >= 170 ? 0.55 : 0.52), 1]}
+          start={{ x: 0.5 - dx, y: 0.5 - dy }}
+          end={{ x: 0.5 + dx, y: 0.5 + dy }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
 
       <Animated.View
         pointerEvents="none"
@@ -71,7 +74,7 @@ export const BrandBackdrop: React.FC<Props> = ({ angle = 165, mid, glows = [], s
         <Svg width="100%" height="100%">
           <Defs>
             <Pattern id="dots" width={DOT_GAP} height={DOT_GAP} patternUnits="userSpaceOnUse">
-              <Circle cx={DOT_GAP / 2} cy={DOT_GAP / 2} r={1.2} fill="#FFFFFF" fillOpacity={0.14} />
+              <Circle cx={DOT_GAP / 2} cy={DOT_GAP / 2} r={1.2} fill={light ? '#2B25C8' : '#FFFFFF'} fillOpacity={light ? 0.1 : 0.14} />
             </Pattern>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#dots)" />
@@ -139,6 +142,9 @@ const GlowOrb: React.FC<Glow & { id: string }> = ({ size, color, opacity, positi
 const styles = StyleSheet.create({
   root: {
     overflow: 'hidden',
+  },
+  rootLight: {
+    backgroundColor: '#FFFFFF',
   },
   dotLayer: {
     position: 'absolute',
