@@ -65,6 +65,9 @@ yarn-error.log
 # testing
 /coverage
 
+# Local public Supabase configuration
+src/config.local.ts
+
 # Yarn
 .yarn/*
 !.yarn/patches

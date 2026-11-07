@@ -25,18 +25,20 @@ import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
 import { brand, cardStyle } from '../theme/brand';
 import { getSession, saveSession, creditsAvailable, UserSession } from '../services/session';
-import { saveNewScan } from '../services/scanRepository';
-import { MANUSCRIPT_BLOCKS, ManuscriptBlock, overallScore, PAPER_SECTIONS, SCORE_CATEGORIES, TITLE_PAGE } from '../data/report';
+import { executeScan, saveNewScan, scanFromBackend } from '../services/scanRepository';
+import { MANUSCRIPT_BLOCKS, ManuscriptBlock, PAPER_SECTIONS, TITLE_PAGE } from '../data/report';
+import { ApiError, ScanProgress, scanFailureFromError } from '../services/api';
 import { AppHeader, initialsOf } from '../components/AppHeader';
 import { LineIcon, LineIconName } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
 import { AnalyzingView } from '../components/scan/AnalyzingView';
 import { ScanTour, TourRect, TOUR_STEPS } from '../components/scan/ScanTour';
 
-type Phase = 'template' | 'upload' | 'confirm' | 'analyzing';
+type Phase = 'template' | 'upload' | 'confirm' | 'analyzing' | 'scan-error';
 type Source = 'file' | 'gdocs';
-type PickedFile = { name: string; sizeMb: number };
+type PickedFile = { name: string; sizeMb: number; uri: string; type: string };
 type GdocsStatus = 'idle' | 'checking' | 'ok' | 'invalid' | 'private';
+type ScanFailure = { type: 'interrupted' | 'busy'; message: string };
 
 const MAX_MB = 25;
 const WORD_TYPES = [
@@ -57,11 +59,11 @@ const pickWordFile = async (): Promise<PickedFile | 'too-big' | null> => {
     if (!file) return null;
     const sizeMb = (file.size || 0) / (1024 * 1024);
     if (sizeMb > MAX_MB) return 'too-big';
-    return { name: file.name || 'manuscript.docx', sizeMb };
+    if (!file.uri) return null;
+    return { name: file.name || 'manuscript.docx', sizeMb, uri: file.uri, type: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
   } catch (e: any) {
     if (e?.code === 'DOCUMENT_PICKER_CANCELED' || e?.code === 'OPERATION_CANCELED') return null;
-    // No native picker available (e.g. simulator without one): fall back to a sample file
-    return { name: 'Academic_Burnout_Study_Final.docx', sizeMb: 2.4 };
+    return null;
   }
 };
 
@@ -149,8 +151,11 @@ export const UploadScreen: React.FC = () => {
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [linkDraft, setLinkDraft] = useState('');
   const [linkDraftStatus, setLinkDraftStatus] = useState<GdocsStatus>('idle');
+  const [scanProgress, setScanProgress] = useState<ScanProgress>({ state: 'processing', message: 'Analyzing your manuscript' });
+  const [scanFailure, setScanFailure] = useState<ScanFailure | null>(null);
   // Set while the user is elsewhere in the app, so a finished scan offers the report instead of taking over the screen
   const backgrounded = useRef(false);
+  const runningScan = useRef<ReturnType<typeof executeScan> | null>(null);
 
   // Guided tour
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -192,6 +197,7 @@ export const UploadScreen: React.FC = () => {
     setFileError(null);
     setGdocsUrl('');
     setGdocsStatus('idle');
+    setScanFailure(null);
   };
 
   const goTo = (next: Phase) => {
@@ -298,33 +304,71 @@ export const UploadScreen: React.FC = () => {
   };
 
   const finishScan = useCallback(async () => {
-    const id = `scan_${Date.now()}`;
-    const title = source === 'file' ? file?.name ?? 'Manuscript.docx' : 'Google Docs manuscript';
-    await saveNewScan({
-      id,
-      title,
-      status: 'Initial scan',
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      score: overallScore(SCORE_CATEGORIES),
-      url: title.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-      isGoogleDoc: source === 'gdocs',
-      heavy: false,
-      unlocked: false,
-    });
-    resetFlow();
-    if (backgrounded.current) {
-      Alert.alert('Your report is ready', title, [
-        { text: 'Later', style: 'cancel' },
-        { text: 'View report', onPress: () => rootNav.push('Report', { scanId: id }) },
-      ]);
-      return;
+    try {
+      const result = await runningScan.current;
+      if (!result) return;
+      const newScan = scanFromBackend(result);
+      await saveNewScan({ ...newScan, isGoogleDoc: source === 'gdocs' });
+      resetFlow();
+      if (backgrounded.current) {
+        Alert.alert('Your report is ready', newScan.title, [
+          { text: 'Later', style: 'cancel' },
+          { text: 'View report', onPress: () => rootNav.push('Report', { scanId: newScan.id }) },
+        ]);
+        return;
+      }
+      tabNav.navigate('Home');
+      rootNav.push('Report', { scanId: newScan.id });
+    } catch (error) {
+      const apiError = error instanceof ApiError ? error : null;
+      const failure = scanFailureFromError(error);
+      const message = apiError?.status === 402
+        ? 'No credits are available for this scan.'
+        : apiError?.status === 503
+          ? 'Other scans are running. Try again in a minute.'
+          : apiError?.status === 422
+            ? apiError.message
+            : apiError?.message || 'Unable to complete the scan. Please try again.';
+      if (failure) {
+        setScanFailure({ type: failure, message: failure === 'busy' ? 'Other scans are running. Try again in a minute.' : message });
+        goTo('scan-error');
+        return;
+      }
+      goTo('confirm');
+      Alert.alert('Scan not completed', message);
+    } finally {
+      runningScan.current = null;
     }
-    tabNav.navigate('Home');
-    rootNav.push('Report', { scanId: id });
   }, [source, file, tabNav, rootNav]);
 
+  useEffect(() => {
+    if (phase === 'analyzing' && runningScan.current) void finishScan();
+  }, [phase, finishScan]);
+
+  const beginScan = () => {
+    const title = source === 'file' ? file?.name : 'Google Docs manuscript';
+    setScanFailure(null);
+    setScanProgress({ state: 'processing', message: 'Analyzing your manuscript' });
+    runningScan.current = executeScan(source === 'file'
+      ? { file: file ? { uri: file.uri, name: file.name, type: file.type } : undefined, manuscript_title: title }
+      : { document_url: gdocsUrl, manuscript_title: title }, { onStatus: setScanProgress });
+    goTo('analyzing');
+  };
+
   if (phase === 'analyzing') {
-    return <AnalyzingView onDone={finishScan} onBackground={continueInBackground} />;
+    return <AnalyzingView progress={scanProgress} onBackground={continueInBackground} />;
+  }
+
+  if (phase === 'scan-error' && scanFailure) {
+    return (
+      <View style={styles.scanErrorPage}>
+        <Text style={styles.scanErrorTitle}>{scanFailure.type === 'interrupted' ? 'Scan interrupted' : 'Scan service busy'}</Text>
+        <Text style={styles.scanErrorText}>{scanFailure.message}</Text>
+        <PressableScale onPress={beginScan} style={styles.scanErrorButton}>
+          <Text style={styles.scanErrorButtonText}>{scanFailure.type === 'interrupted' ? 'Start again' : 'Try again'}</Text>
+        </PressableScale>
+      </View>
+    );
   }
 
   const stepIndex = phase === 'template' ? 0 : phase === 'upload' ? 1 : 2;
@@ -637,7 +681,7 @@ export const UploadScreen: React.FC = () => {
         {phase === 'confirm' && (
           <>
             <View ref={targets.runButton} collapsable={false}>
-              <PrimaryButton label="Yes, run coherence scan" onPress={() => goTo('analyzing')} />
+              <PrimaryButton label="Yes, run coherence scan" onPress={beginScan} />
             </View>
             <GhostButton label="Choose a different document" onPress={() => goTo('upload')} />
           </>
@@ -1018,6 +1062,38 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans[600],
     fontSize: 12.5,
     color: brand.danger,
+  },
+  scanErrorPage: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    gap: 16,
+    backgroundColor: brand.page,
+  },
+  scanErrorTitle: {
+    fontFamily: fonts.sans[800],
+    fontSize: 28,
+    color: brand.ink,
+    textAlign: 'center',
+  },
+  scanErrorText: {
+    fontFamily: fonts.sans[400],
+    fontSize: 16,
+    lineHeight: 24,
+    color: brand.sub,
+    textAlign: 'center',
+  },
+  scanErrorButton: {
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: brand.primary,
+  },
+  scanErrorButtonText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 15,
+    color: '#FFFFFF',
   },
 
   // Confirm

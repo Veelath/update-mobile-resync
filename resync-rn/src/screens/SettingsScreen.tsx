@@ -136,8 +136,12 @@ export const SettingsScreen: React.FC = () => {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
-          await clearSession();
-          tabNav.getParent()?.reset({ index: 0, routes: [{ name: 'Auth', params: { mode: 'login' } }] });
+          try {
+            await clearSession();
+            tabNav.getParent()?.reset({ index: 0, routes: [{ name: 'Auth', params: { mode: 'login' } }] });
+          } catch (err: any) {
+            Alert.alert('Sign-out Error', err.message || 'Unable to sign out. Please try again.');
+          }
         },
       },
     ]);

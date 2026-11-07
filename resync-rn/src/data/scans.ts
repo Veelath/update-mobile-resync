@@ -9,6 +9,41 @@ export interface ScanItem {
   versionName?: string;
   heavy?: boolean;
   unlocked?: boolean; // false while only the free preview is available; older scans have no flag and stay open
+  result?: BackendScanResult;
+  creditsRemaining?: number | null;
+}
+
+export interface BackendScanResult {
+  analysis_run_id: string;
+  manuscript_title?: string | null;
+  overall_coherence_score: number;
+  sections_analyzed: string[];
+  access?: {
+    unlocked: boolean;
+    unlock_cost: number;
+    locked_counts: { sections: number; citations: number; recommendations: number };
+  };
+  score_breakdown?: {
+    band?: string;
+    dimensions?: Record<string, number | null>;
+  };
+  citations?: {
+    citation_raw_reference_text: string;
+    citation_is_accessible: boolean;
+    citation_primary_link?: string | null;
+  }[];
+  recommendations?: {
+    recommendation_id: string;
+    section?: string;
+    section_a: string;
+    section_b: string;
+    original_sentence?: string | null;
+    issue?: string;
+    recommended_revision: string;
+    recommendation_priority: 'High' | 'Medium' | 'Low';
+  }[];
+  manuscript_sections?: { name: string; text: string | null }[];
+  credits_remaining?: number | null;
 }
 
 export const INITIAL_SCANS: ScanItem[] = [

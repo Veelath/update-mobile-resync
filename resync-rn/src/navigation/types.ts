@@ -15,5 +15,4 @@ export type RootStackParamList = {
   Auth: { mode?: 'signup' | 'login' } | undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   Report: { scanId?: string; heavy?: boolean } | undefined;
-  Compare: { scanIds: string[] };
 };

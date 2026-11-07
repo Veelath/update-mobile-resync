@@ -39,7 +39,7 @@ import {
 } from '../data/report';
 import { ScanItem } from '../data/scans';
 import { getAllScans, unlockScan } from '../services/scanRepository';
-import { creditsAvailable, getSession, incrementScansCount } from '../services/session';
+import { creditsAvailable, getSession } from '../services/session';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 type ReportView = 'report' | 'manuscript';
@@ -60,10 +60,10 @@ const notify = (message: string) => {
 const creditsLabel = (n: number) => `You have ${n} ${n === 1 ? 'credit' : 'credits'}`;
 
 /** Score ring split into one arc per category, each filled to that category's score. */
-const CategoryRing: React.FC<{ score: number }> = ({ score }) => (
+const CategoryRing: React.FC<{ score: number; categories: ScoreCategory[] }> = ({ score, categories }) => (
   <View style={styles.ring}>
     <Svg width={108} height={108} viewBox="0 0 100 100">
-      {SCORE_CATEGORIES.map((c, i) => {
+      {categories.map((c, i) => {
         const pct = categoryPercent(c);
         const arc = (share: number) => [(share / 100) * RING_LENGTH, RING_LENGTH];
         const shared = {
@@ -73,7 +73,7 @@ const CategoryRing: React.FC<{ score: number }> = ({ score }) => (
           fill: 'none',
           strokeWidth: 9,
           strokeLinecap: 'round' as const,
-          rotation: -88 + i * 90,
+            rotation: -88 + i * (360 / categories.length),
           originX: 50,
           originY: 50,
         };
@@ -268,6 +268,48 @@ const Paragraph: React.FC<{ text: string; activeId?: string; onPick: (rec: Repor
 const BLOCK_STYLE = (kind: ManuscriptBlock['kind']) =>
   kind === 'chapter' ? styles.paperChapter : kind === 'heading' ? styles.paperHeading : styles.paperText;
 
+const LIVE_CATEGORY_META: Record<string, { name: string; color: string; desc: string }> = {
+  objectives_alignment: { name: 'Objectives Alignment', color: '#F5A524', desc: 'How well the research objectives align across sections.' },
+  methodology_fit: { name: 'Methodology Fit', color: '#10B981', desc: 'How well the methods support the stated objectives.' },
+  numeric_consistency: { name: 'Numeric Consistency', color: '#C4C2DA', desc: 'How consistently numeric claims agree.' },
+  claim_support: { name: 'Claim Support', color: '#F43F5E', desc: 'How well claims are supported by the manuscript.' },
+};
+
+const liveCategories = (scan: ScanItem | null): ScoreCategory[] => Object.entries(scan?.result?.score_breakdown?.dimensions || {})
+  .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+  .map(([id, score]) => ({
+    id,
+    name: LIVE_CATEGORY_META[id]?.name || id.replace(/_/g, ' '),
+    color: LIVE_CATEGORY_META[id]?.color || brand.primary,
+    desc: LIVE_CATEGORY_META[id]?.desc || 'Backend score dimension.',
+    correct: score,
+    total: 100,
+  }));
+
+const liveRecommendations = (scan: ScanItem | null): ReportRecommendation[] => (scan?.result?.recommendations || []).map((recommendation) => ({
+  id: recommendation.recommendation_id,
+  tag: `${recommendation.recommendation_priority} priority`,
+  category: 'Recommendation',
+  title: recommendation.issue || `Revise ${recommendation.section_a} and ${recommendation.section_b}`,
+  from: recommendation.section_a,
+  to: recommendation.section_b,
+  why: recommendation.issue || recommendation.recommended_revision,
+  where: recommendation.section || recommendation.section_a,
+  action: 'Suggested revision',
+  sentences: recommendation.recommended_revision,
+  highlight: recommendation.original_sentence || '',
+}));
+
+const liveCitations = (scan: ScanItem | null): Citation[] => (scan?.result?.citations || []).map((citation) => ({
+  text: citation.citation_raw_reference_text,
+  accessible: citation.citation_is_accessible,
+  url: citation.citation_primary_link || undefined,
+}));
+
+const liveManuscriptBlocks = (scan: ScanItem | null): ManuscriptBlock[] => (scan?.result?.manuscript_sections || [])
+  .filter((section): section is { name: string; text: string } => typeof section.text === 'string')
+  .flatMap((section) => [{ kind: 'heading' as const, text: section.name }, ...section.text.split(/\n+/).filter(Boolean).map((text) => ({ kind: 'text' as const, text }))]);
+
 export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const scanId = route.params?.scanId;
@@ -303,22 +345,31 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
     }, [load]),
   );
 
-  const locked = scan?.unlocked === false;
-  const lockedCount = RECOMMENDATIONS.length - FREE_RECOMMENDATIONS;
-  const recs = locked ? RECOMMENDATIONS.slice(0, FREE_RECOMMENDATIONS) : RECOMMENDATIONS;
-  const citations = (locked ? CITATIONS.slice(0, FREE_CITATIONS) : CITATIONS)
+  const isLiveScan = !!scan?.result;
+  const locked = isLiveScan ? scan?.result?.access?.unlocked === false : scan?.unlocked === false;
+  const lockedCounts = scan?.result?.access?.locked_counts;
+  const lockedCount = isLiveScan ? lockedCounts?.recommendations || 0 : RECOMMENDATIONS.length - FREE_RECOMMENDATIONS;
+  const categories = isLiveScan ? liveCategories(scan) : SCORE_CATEGORIES;
+  const score = isLiveScan ? scan?.result?.overall_coherence_score || 0 : overallScore(SCORE_CATEGORIES);
+  const recs = isLiveScan ? liveRecommendations(scan) : (locked ? RECOMMENDATIONS.slice(0, FREE_RECOMMENDATIONS) : RECOMMENDATIONS);
+  const allCitations = isLiveScan ? liveCitations(scan) : CITATIONS;
+  const citations = allCitations
     .map((c, i) => ({ c, number: i + 1 }))
     .filter(({ c }) => citationFilter === null || c.accessible === citationFilter);
-  const openBlocks = locked ? MANUSCRIPT_BLOCKS.slice(0, FREE_MANUSCRIPT_BLOCKS) : MANUSCRIPT_BLOCKS;
+  const openBlocks = isLiveScan ? liveManuscriptBlocks(scan) : (locked ? MANUSCRIPT_BLOCKS.slice(0, FREE_MANUSCRIPT_BLOCKS) : MANUSCRIPT_BLOCKS);
 
   const unlock = async () => {
     if (!scan || unlocking.current) return;
     unlocking.current = true;
-    // The scan itself is free: the credit is spent here, when the full report opens
-    await incrementScansCount();
-    await unlockScan(scan.id);
-    await load();
-    unlocking.current = false;
+    try {
+      const updated = await unlockScan(scan.id);
+      setScan(updated);
+      if (updated.creditsRemaining !== undefined && updated.creditsRemaining !== null) setCredits(updated.creditsRemaining);
+    } catch (error: any) {
+      notify(error?.status === 402 ? 'Not enough credits' : error?.message || 'Unable to unlock this report.');
+    } finally {
+      unlocking.current = false;
+    }
   };
 
   const unlockAction =
@@ -400,10 +451,10 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
             end={{ x: 1, y: 1 }}
             style={styles.hero}
           >
-            <CategoryRing score={overallScore(SCORE_CATEGORIES)} />
+            <CategoryRing score={score} categories={categories} />
             <View style={styles.heroText}>
               <Text style={styles.heroTitle}>Overall coherence score</Text>
-              <Text style={styles.heroSub}>Needs revision. Average of the four categories, rounded up.</Text>
+              <Text style={styles.heroSub}>{isLiveScan ? scan?.result?.score_breakdown?.band || 'Completed' : 'Needs revision. Average of the four categories, rounded up.'}</Text>
             </View>
           </LinearGradient>
 
@@ -415,7 +466,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* The popover floats over what follows the grid; they share this parent so it stays tappable on Android */}
           <View onLayout={(e) => (breakdownY.current = e.nativeEvent.layout.y)}>
             <View style={styles.grid}>
-              {[0, 2].map((start, row) => (
+              {[0, 2].filter((start) => categories.length > start).map((start, row) => (
                 <View
                   key={start}
                   style={styles.gridRow}
@@ -424,7 +475,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
                     setRowBottoms((prev) => prev.map((v, i) => (i === row ? y + height : v)));
                   }}
                 >
-                  {SCORE_CATEGORIES.slice(start, start + 2).map((c, i) => (
+                  {categories.slice(start, start + 2).map((c, i) => (
                     <CategoryCard
                       key={c.id}
                       category={c}
@@ -439,9 +490,9 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.tabs}>
               {(
                 [
-                  { key: 'recs', label: 'Recommendations', count: recs.length },
-                  { key: 'clear', label: 'All clear', count: ALL_CLEAR_LINKS.length },
-                  { key: 'citations', label: 'Citations', count: CITATIONS.length },
+                  { key: 'recs', label: 'Recommendations', count: recs.length + (isLiveScan ? lockedCounts?.recommendations || 0 : 0) },
+                  { key: 'clear', label: 'All clear', count: isLiveScan ? 0 : ALL_CLEAR_LINKS.length },
+                  { key: 'citations', label: 'Citations', count: allCitations.length + (isLiveScan ? lockedCounts?.citations || 0 : 0) },
                 ] as const
               ).map((o) => (
                 <Pressable key={o.key} onPress={() => setTab(o.key)} style={[styles.tab, tab === o.key && styles.toggleOn]}>
@@ -462,7 +513,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {tab === 'clear' && (
               <View style={styles.panel}>
-                {ALL_CLEAR_LINKS.map((l) => (
+                {!isLiveScan && ALL_CLEAR_LINKS.map((l) => (
                   <View key={`${l.from}-${l.to}`} style={styles.clearRow}>
                     <Text style={styles.clearTitle}>
                       {l.from} <Text style={styles.clearArrow}>↔</Text> {l.to}
@@ -490,7 +541,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
                       style={[styles.citeStat, citationFilter === o.value && styles.citeStatOn]}
                     >
                       <Text style={styles.citeStatLabel}>{o.label}</Text>
-                      <Text style={styles.citeStatValue}>{CITATIONS.filter((c) => c.accessible === o.value).length}</Text>
+                      <Text style={styles.citeStatValue}>{allCitations.filter((c) => c.accessible === o.value).length}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -500,13 +551,13 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
                 {citations.map(({ c, number }) => (
                   <CitationCard key={number} citation={c} number={number} />
                 ))}
-                {locked && <Text style={styles.citeMore}>+ {CITATIONS.length - FREE_CITATIONS} more citations</Text>}
+                {locked && <Text style={styles.citeMore}>+ {isLiveScan ? lockedCounts?.citations || 0 : CITATIONS.length - FREE_CITATIONS} more citations</Text>}
               </View>
             )}
 
             {openCategory !== null && (
               <CategoryPopover
-                category={SCORE_CATEGORIES[openCategory]}
+                category={categories[openCategory]}
                 top={GRID_TOP + rowBottoms[openCategory < 2 ? 0 : 1] + 6}
                 arrowLeft={openCategory % 2 === 0 ? '22%' : '72%'}
                 onClose={() => setOpenCategory(null)}
@@ -538,8 +589,21 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.doneText}>Analysis complete</Text>
             </View>
             {locked ? (
+              <>
+              {isLiveScan && (
+                <Text style={styles.overall}>
+                  Free preview: <Text style={styles.overallBold}>{recs.length} finding{recs.length === 1 ? '' : 's'} shown</Text>. Unlock to see {lockedCounts?.sections || 0} more sections.
+                </Text>
+              )}
+              {!isLiveScan && (
               <Text style={styles.overall}>
                 Free preview · <Text style={styles.overallBold}>{FREE_RECOMMENDATIONS} finding shown</Text> · Unlock to see all
+              </Text>
+              )}
+              </>
+            ) : isLiveScan ? (
+              <Text style={styles.overall}>
+                Overall assessment <Text style={styles.overallBold}>{scan?.result?.score_breakdown?.band || 'Completed'}</Text>. {recs.length} findings across {scan?.result?.sections_analyzed.length || 0} sections.
               </Text>
             ) : (
               <Text style={styles.overall}>
@@ -556,7 +620,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.paper} onLayout={(e) => (paperY.current = e.nativeEvent.layout.y)}>
             {openBlocks.map((b, i) => (
               <View key={i} onLayout={(e) => (blockY.current[i] = e.nativeEvent.layout.y)}>
-                {b.kind === 'text' ? (
+                {b.kind === 'text' && !isLiveScan ? (
                   <Paragraph text={b.text} activeId={sheetRec?.id} onPick={setSheetRec} />
                 ) : (
                   <Text style={BLOCK_STYLE(b.kind)}>{b.text}</Text>
@@ -564,7 +628,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
             ))}
 
-            {locked && (
+            {locked && !isLiveScan && (
               <View style={styles.lockWrap}>
                 <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                   {MANUSCRIPT_BLOCKS.slice(FREE_MANUSCRIPT_BLOCKS).map((b, i) => (
@@ -576,6 +640,18 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.lockCard}>
                   <LineIcon name="lock" size={22} color={brand.primary} />
                   <Text style={styles.lockTitle}>Unlock the full report to read every section and see all {lockedCount} more recommendations</Text>
+                  <PressableScale onPress={unlockAction.onPress} style={styles.lockBtn}>
+                    <Text style={styles.lockBtnText}>{unlockAction.label}</Text>
+                  </PressableScale>
+                  <Text style={styles.lockHint}>{creditsLabel(credits)}</Text>
+                </View>
+              </View>
+            )}
+            {locked && isLiveScan && (
+              <View style={styles.lockWrap}>
+                <View style={styles.lockCard}>
+                  <LineIcon name="lock" size={22} color={brand.primary} />
+                  <Text style={styles.lockTitle}>Unlock the full report to read {lockedCounts?.sections || 0} more sections and see all {lockedCount} more recommendations</Text>
                   <PressableScale onPress={unlockAction.onPress} style={styles.lockBtn}>
                     <Text style={styles.lockBtnText}>{unlockAction.label}</Text>
                   </PressableScale>

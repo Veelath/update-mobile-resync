@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
 import { loginUser, registerUser } from '../services/scanRepository';
-import { saveSession } from '../services/session';
+import { loginWithGoogle } from '../services/api';
 import { BrandBackdrop } from '../components/BrandBackdrop';
 import { IssueTag, useBobClock } from '../components/IssueTag';
 import { LineIcon, LineIconName } from '../components/LineIcon';
@@ -160,27 +160,19 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
   const goToApp = () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    if (loading || !validate()) return;
     setLoading(true);
     try {
       if (isLogin) {
-        const res = await loginUser({ email, password });
-        await saveSession({
-          authToken: res.token,
-          userEmail: res.email,
-          userName: res.name,
-          isLoggedIn: true,
-        });
+        await loginUser({ email, password });
       } else {
         const name = [firstName, middleName, lastName].map((s) => s.trim()).filter(Boolean).join(' ');
         const res = await registerUser({ name, email, school: '', password });
-        await saveSession({
-          authToken: res.token,
-          userEmail: res.email,
-          userName: res.name,
-          ...(res.school ? { userInstitution: res.school } : {}),
-          isLoggedIn: true,
-        });
+        if (!res) {
+          Alert.alert('Check your email', 'Confirm your email address, then return here to sign in.');
+          setMode('login');
+          return;
+        }
       }
       goToApp();
     } catch (err: any) {
@@ -191,13 +183,15 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handleGoogle = async () => {
-    await saveSession({
-      isLoggedIn: true,
-      userEmail: 'veronica@stanford.edu',
-      userName: 'Veronica May',
-      userInstitution: 'Stanford University',
-    });
-    goToApp();
+    if (loading) return;
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      Alert.alert('Authentication Error', err.message || 'Unable to sign in with Google.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const switchMode = () => {
@@ -208,7 +202,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const googleButton = (height: number) => (
-    <PressableScale onPress={handleGoogle} style={[styles.googleBtn, { height }]}>
+    <PressableScale onPress={handleGoogle} disabled={loading} style={[styles.googleBtn, { height }]}>
       <GoogleIcon />
       <Text style={styles.googleText}>Continue with Google</Text>
     </PressableScale>

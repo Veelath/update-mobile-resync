@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 
 export interface UserSession {
   authToken: string | null;
@@ -72,10 +73,8 @@ const KEYS = {
 export async function getSession(): Promise<UserSession> {
   try {
     const [
-      authToken,
       userEmail,
       userName,
-      isLoggedIn,
       scansCount,
       hasCompletedOnboarding,
       themePreference,
@@ -92,10 +91,8 @@ export async function getSession(): Promise<UserSession> {
       storedMemberSince,
       hasSeenScanTour,
     ] = await Promise.all([
-      AsyncStorage.getItem(KEYS.AUTH_TOKEN),
       AsyncStorage.getItem(KEYS.USER_EMAIL),
       AsyncStorage.getItem(KEYS.USER_NAME),
-      AsyncStorage.getItem(KEYS.IS_LOGGED_IN),
       AsyncStorage.getItem(KEYS.SCANS_COUNT),
       AsyncStorage.getItem(KEYS.HAS_COMPLETED_ONBOARDING),
       AsyncStorage.getItem(KEYS.THEME_PREFERENCE),
@@ -119,11 +116,15 @@ export async function getSession(): Promise<UserSession> {
       await AsyncStorage.setItem(KEYS.MEMBER_SINCE, memberSince);
     }
 
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    const authSession = data.session;
+
     return {
-      authToken: authToken || DEFAULT_SESSION.authToken,
-      userEmail: userEmail || DEFAULT_SESSION.userEmail,
+      authToken: authSession?.access_token ?? null,
+      userEmail: authSession?.user.email || userEmail || DEFAULT_SESSION.userEmail,
       userName: userName || DEFAULT_SESSION.userName,
-      isLoggedIn: isLoggedIn === 'true',
+      isLoggedIn: !!authSession,
       scansCount: scansCount ? parseInt(scansCount, 10) : DEFAULT_SESSION.scansCount,
       hasCompletedOnboarding: hasCompletedOnboarding === 'true',
       themePreference: (themePreference as any) || DEFAULT_SESSION.themePreference,
@@ -173,6 +174,8 @@ export async function saveSession(updates: Partial<UserSession>): Promise<void> 
 }
 
 export async function clearSession(): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  if (error) throw new Error('Unable to sign out. Please try again.');
   await Promise.all([
     AsyncStorage.removeItem(KEYS.AUTH_TOKEN),
     AsyncStorage.removeItem(KEYS.IS_LOGGED_IN),

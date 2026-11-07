@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, Animated, Easing, Image, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import * as SvgModule from 'react-native-svg';
@@ -8,6 +8,7 @@ import { brand } from '../../theme/brand';
 import { LineIcon } from '../LineIcon';
 import { PressableScale } from '../PressableScale';
 import { Rise } from '../Rise';
+import type { ScanProgress } from '../../services/api';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const { Defs, Pattern, Circle, Rect, RadialGradient, Stop, Mask } = SvgModule;
@@ -22,11 +23,6 @@ const CHECKS = [
     status: 'Generating AI Recommendations…',
   },
 ];
-
-const TOTAL_MS = 14000;
-const QUARTER = 100 / CHECKS.length;
-// A check shows its green tick for the last slice of its quarter before the next one slides in
-const DONE_AT = QUARTER - 4;
 
 const useLoop = (duration: number, { delay = 0, easing = Easing.linear } = {}) => {
   const v = useRef(new Animated.Value(0)).current;
@@ -92,43 +88,15 @@ const CheckRow: React.FC<{ index: number; done: boolean; leaving: boolean }> = (
   );
 };
 
-export const AnalyzingView: React.FC<{ onDone: () => void; onBackground: () => void }> = ({ onDone, onBackground }) => {
+export const AnalyzingView: React.FC<{ progress: ScanProgress; onBackground: () => void }> = ({ progress: scanProgress, onBackground }) => {
   const insets = useSafeAreaInsets();
-  const progress = useRef(new Animated.Value(0)).current;
-  const [pct, setPct] = useState(0);
-  const [prevPhase, setPrevPhase] = useState<number | null>(null);
 
   const pulseA = useLoop(2800, { easing: Easing.out(Easing.ease) });
   const pulseB = useLoop(2800, { delay: 1400, easing: Easing.out(Easing.ease) });
   const orbit = useLoop(38000);
-  const shine = useLoop(1800, { easing: Easing.inOut(Easing.ease) });
 
-  useEffect(() => {
-    const id = progress.addListener(({ value }) => setPct(Math.floor(value)));
-    Animated.timing(progress, { toValue: 100, duration: TOTAL_MS, easing: Easing.linear, useNativeDriver: false }).start(
-      ({ finished }) => {
-        if (finished) setTimeout(onDone, 500);
-      },
-    );
-    return () => {
-      progress.removeListener(id);
-      progress.stopAnimation();
-    };
-  }, [progress, onDone]);
-
-  const phase = Math.min(CHECKS.length - 1, Math.floor(pct / QUARTER));
-  const done = pct >= 100 || pct - phase * QUARTER >= DONE_AT;
-
-  // Keep the previous row on screen briefly so it can slide out
-  const lastPhase = useRef(phase);
-  useEffect(() => {
-    if (phase !== lastPhase.current) {
-      setPrevPhase(lastPhase.current);
-      lastPhase.current = phase;
-      const t = setTimeout(() => setPrevPhase(null), 340);
-      return () => clearTimeout(t);
-    }
-  }, [phase]);
+  const phase = 0;
+  const done = false;
 
   const pulseStyle = (v: Animated.Value) => ({
     opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
@@ -182,44 +150,26 @@ export const AnalyzingView: React.FC<{ onDone: () => void; onBackground: () => v
         </Rise>
 
         <Rise delay={250} style={styles.center}>
-          <Text style={styles.title}>Analyzing your manuscript</Text>
-          <Text style={styles.sub}>Running {CHECKS.length} checks as a holistic manuscript analysis</Text>
+          <Text style={styles.title}>{scanProgress.state === 'queued' ? 'Waiting in line' : 'Analyzing your manuscript'}</Text>
+          <Text style={styles.sub}>{scanProgress.message}</Text>
         </Rise>
 
         <Rise delay={400} style={styles.card}>
-          <View style={styles.statusRow}>
-            <View style={styles.statusLeft}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>{CHECKS[phase].status}</Text>
-            </View>
-            <Text style={styles.pct}>{pct}%</Text>
-          </View>
-
-          <View style={styles.track}>
-            <Animated.View
-              style={[styles.fill, { width: progress.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
-            >
-              <LinearGradient colors={['#4A44E0', brand.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-              <Animated.View
-                style={[
-                  styles.shine,
-                  { transform: [{ translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-120, 340] }) }] },
-                ]}
-              >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={StyleSheet.absoluteFill}
-                />
-              </Animated.View>
-            </Animated.View>
-          </View>
-
-          <View style={styles.rowSlot}>
-            {prevPhase !== null && <CheckRow key={`out-${prevPhase}`} index={prevPhase} done leaving />}
-            <CheckRow key={phase} index={phase} done={done} leaving={false} />
-          </View>
+          {scanProgress.state === 'queued' ? (
+            <Text style={styles.queueText}>{scanProgress.message}</Text>
+          ) : (
+            <>
+              <View style={styles.statusRow}>
+                <View style={styles.statusLeft}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>{CHECKS[phase].status}</Text>
+                </View>
+              </View>
+              <View style={styles.rowSlot}>
+                <CheckRow key={phase} index={phase} done={done} leaving={false} />
+              </View>
+            </>
+          )}
         </Rise>
 
         <Rise delay={400} style={styles.footer}>
@@ -351,30 +301,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: brand.primary,
   },
-  pct: {
-    fontFamily: fonts.mono[700],
-    fontSize: 13,
-    color: brand.primary,
-  },
-  track: {
-    marginTop: 14,
-    marginBottom: 22,
-    marginHorizontal: 4,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: brand.softLine,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  shine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 120,
+  queueText: {
+    fontFamily: fonts.sans[600],
+    fontSize: 15,
+    lineHeight: 22,
+    color: brand.ink,
+    textAlign: 'center',
   },
   rowSlot: {
     height: 74,
