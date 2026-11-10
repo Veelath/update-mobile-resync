@@ -13,6 +13,18 @@ export interface ScanItem {
   creditsRemaining?: number | null;
 }
 
+export interface CheckCount {
+  items: number;
+  passed: number;
+  points?: number; // full points plus part points; unset when the backend doesn't send them
+}
+
+export interface DimensionBreakdown extends Partial<CheckCount> {
+  score?: number | null; // 0 to 100
+  flow?: CheckCount;
+  cross?: CheckCount;
+}
+
 export interface BackendScanResult {
   analysis_run_id: string;
   manuscript_title?: string | null;
@@ -25,7 +37,8 @@ export interface BackendScanResult {
   };
   score_breakdown?: {
     band?: string;
-    dimensions?: Record<string, number | null>;
+    dimensions?: Record<string, number | null>; // 0 to 1
+    dimension_breakdown?: Record<string, DimensionBreakdown> | null;
   };
   citations?: {
     citation_raw_reference_text: string;

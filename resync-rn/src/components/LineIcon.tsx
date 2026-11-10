@@ -56,6 +56,8 @@ const ICONS = {
   checkCircle: [{ circle: { cx: 12, cy: 12, r: 9 } }, { p: 'M8 12.5l2.7 2.7L16 9.5' }],
   exportDown: [{ p: 'M12 4v11' }, { p: 'M7 11l5 5 5-5' }, { p: 'M5 20h14' }],
   logout: [{ p: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3' }, { p: 'M10 17l-5-5 5-5' }, { p: 'M5 12h11' }],
+  chevronRight: [{ p: 'M9 6l6 6-6 6' }],
+  shield: [{ p: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z' }, { p: 'M9 12l2.2 2.2L15 10' }],
 } satisfies Record<string, Shape[]>;
 
 export type LineIconName = keyof typeof ICONS;

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, StatusBar, Pressable } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, StatusBar, Pressable, Modal, Alert, KeyboardAvoidingView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import * as SvgModule from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -8,33 +8,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
 import { brand, cardStyle } from '../theme/brand';
-import { getSession, saveSession, creditsAvailable, UserSession } from '../services/session';
+import { clearSession, getSession, saveSession, UserSession } from '../services/session';
+import { useCreditBalance } from '../services/credits';
+import { getAllScans } from '../services/scanRepository';
 import { AppHeader, initialsOf } from '../components/AppHeader';
 import { LineIcon, LineIconName } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
-import { BottomSheet } from '../components/BottomSheet';
 import { Rise } from '../components/Rise';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const { Defs, LinearGradient: SvgLinearGradient, Stop, Rect, Path, Ellipse, Circle } = SvgModule;
 
 type EditableKey = 'userName' | 'contactNumber' | 'userInstitution' | 'program' | 'yearLevel' | 'researchTitle';
-type Section = 'personal' | 'academic' | 'all';
 
 const FIELD_META: Record<EditableKey, { label: string; icon: LineIconName; placeholder: string }> = {
-  userName: { label: 'Full name', icon: 'user', placeholder: 'Your full name' },
-  contactNumber: { label: 'Contact number', icon: 'phone', placeholder: 'e.g. 0917 123 4567' },
-  userInstitution: { label: 'University', icon: 'cap', placeholder: 'e.g. University of the Philippines' },
-  program: { label: 'Program', icon: 'book', placeholder: 'e.g. BS Information Technology' },
-  yearLevel: { label: 'Year level', icon: 'calendar', placeholder: 'e.g. 4th year' },
-  researchTitle: { label: 'Research title', icon: 'page', placeholder: 'Working title of your manuscript' },
+  userName: { label: 'Full name', icon: 'user', placeholder: 'Add full name' },
+  contactNumber: { label: 'Contact number', icon: 'phone', placeholder: 'Add contact number' },
+  userInstitution: { label: 'University', icon: 'cap', placeholder: 'Add university' },
+  program: { label: 'Program', icon: 'book', placeholder: 'Add program' },
+  yearLevel: { label: 'Year level', icon: 'calendar', placeholder: 'Add year level' },
+  researchTitle: { label: 'Research title', icon: 'page', placeholder: 'Add research title' },
 };
 
-const SECTION_FIELDS: Record<Section, EditableKey[]> = {
-  personal: ['userName', 'contactNumber'],
-  academic: ['userInstitution', 'program', 'yearLevel', 'researchTitle'],
-  all: ['userName', 'contactNumber', 'userInstitution', 'program', 'yearLevel', 'researchTitle'],
-};
+const ACADEMIC_FIELDS: EditableKey[] = ['userInstitution', 'program', 'yearLevel', 'researchTitle'];
+const ALL_FIELDS: EditableKey[] = ['userName', 'contactNumber', ...ACADEMIC_FIELDS];
 
 // Fields that count toward "Profile completeness", with the wording used in the hint
 const COMPLETENESS: { key: keyof UserSession; noun: string }[] = [
@@ -76,57 +73,74 @@ const AvatarArt: React.FC = () => (
   </Svg>
 );
 
-const InfoRow: React.FC<{ icon: LineIconName; label: string; value: string; onAdd?: () => void }> = ({
+const SecurityRow: React.FC<{ icon: LineIconName; tint: string; color: string; title: string; sub: string; onPress: () => void }> = ({
   icon,
-  label,
-  value,
-  onAdd,
-}) => {
-  const empty = !value.trim();
-  return (
-    <View style={[styles.infoRow, empty && styles.infoRowEmpty]}>
-      <View style={styles.infoIcon}>
-        <LineIcon name={icon} size={19} color={brand.primary} />
-      </View>
-      <View style={styles.flex1}>
-        <Text style={styles.infoLabel}>{label.toUpperCase()}</Text>
-        {empty ? (
-          <Text style={styles.infoValue}>
-            <Text style={styles.notAdded}>Not added</Text>
-            {onAdd && (
-              <>
-                <Text style={styles.notAdded}> · </Text>
-                <Text style={styles.addLink} onPress={onAdd}>
-                  Add
-                </Text>
-              </>
-            )}
-          </Text>
-        ) : (
-          <Text style={styles.infoValue}>{value}</Text>
-        )}
-      </View>
+  tint,
+  color,
+  title,
+  sub,
+  onPress,
+}) => (
+  <Pressable onPress={onPress} style={({ pressed }) => [styles.securityRow, pressed && { backgroundColor: brand.soft }]}>
+    <View style={[styles.rowIcon, { backgroundColor: tint }]}>
+      <LineIcon name={icon} size={19} color={color} />
     </View>
-  );
-};
+    <View style={styles.flex1}>
+      <Text style={styles.securityTitle}>{title}</Text>
+      <Text style={styles.securitySub}>{sub}</Text>
+    </View>
+    <LineIcon name="chevronRight" size={18} color="#8B89AD" />
+  </Pressable>
+);
+
+const FieldRow: React.FC<{
+  icon: LineIconName;
+  label: string;
+  value: string;
+  placeholder?: string;
+  readOnly?: boolean;
+  keyboardType?: 'default' | 'phone-pad';
+  onChange?: (text: string) => void;
+}> = ({ icon, label, value, placeholder, readOnly, keyboardType, onChange }) => (
+  <View style={styles.fieldRow}>
+    <View style={styles.rowIcon}>
+      <LineIcon name={icon} size={19} color={brand.primary} />
+    </View>
+    <View style={styles.flex1}>
+      <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        editable={!readOnly}
+        placeholder={placeholder}
+        placeholderTextColor="#9A98B8"
+        keyboardType={keyboardType}
+        style={[styles.fieldInput, readOnly && styles.fieldInputReadOnly]}
+      />
+    </View>
+  </View>
+);
 
 export const ProfileScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const insets = useSafeAreaInsets();
   const [session, setSession] = useState<UserSession | null>(null);
-  const [editing, setEditing] = useState<Section | null>(null);
+  const [credits] = useCreditBalance();
+  const [scansRun, setScansRun] = useState<number | null>(null);
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<Record<EditableKey, string>>>({});
 
   useFocusEffect(
     useCallback(() => {
       getSession().then(setSession);
+      getAllScans().then((scans) => setScansRun(scans.length));
     }, []),
   );
 
-  const openEditor = (section: Section) => {
+  const openEditor = () => {
     if (!session) return;
-    setDraft(Object.fromEntries(SECTION_FIELDS[section].map((k) => [k, session[k]])));
-    setEditing(section);
+    setDraft(Object.fromEntries(ALL_FIELDS.map((k) => [k, session[k]])));
+    setEditing(true);
   };
 
   const saveDraft = async () => {
@@ -135,13 +149,45 @@ export const ProfileScreen: React.FC = () => {
     if (updates.userName === '') delete updates.userName;
     await saveSession(updates);
     setSession(await getSession());
-    setEditing(null);
+    setEditing(false);
   };
+
+  const handleLogout = () => {
+    Alert.alert('Log Out', 'Are you sure you want to log out of Resync?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await clearSession();
+            tabNav.getParent()?.reset({ index: 0, routes: [{ name: 'Auth', params: { mode: 'login' } }] });
+          } catch (err: any) {
+            Alert.alert('Sign-out Error', err.message || 'Unable to sign out. Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const showDevices = () => Alert.alert('Signed-in devices', 'You are signed in on this device. Managing other devices is coming soon.');
 
   const name = session?.userName ?? '';
   const filled = session ? COMPLETENESS.filter((f) => String(session[f.key] ?? '').trim()) : [];
   const missing = session ? COMPLETENESS.filter((f) => !String(session[f.key] ?? '').trim()) : [];
   const pct = Math.round((filled.length / COMPLETENESS.length) * 100);
+
+  const renderField = (k: EditableKey) => (
+    <FieldRow
+      key={k}
+      icon={FIELD_META[k].icon}
+      label={FIELD_META[k].label}
+      placeholder={FIELD_META[k].placeholder}
+      value={draft[k] ?? ''}
+      keyboardType={k === 'contactNumber' ? 'phone-pad' : 'default'}
+      onChange={(t) => setDraft((d) => ({ ...d, [k]: t }))}
+    />
+  );
 
   return (
     <View style={styles.page}>
@@ -169,8 +215,8 @@ export const ProfileScreen: React.FC = () => {
 
             <View style={styles.stats}>
               {[
-                { value: session ? String(creditsAvailable(session)) : '–', label: 'Credits' },
-                { value: String(session?.scansCount ?? '–'), label: 'Scans run' },
+                { value: credits === null ? '–' : String(credits), label: 'Credits' },
+                { value: scansRun === null ? '–' : String(scansRun), label: 'Scans run' },
                 { value: session ? formatMonth(session.memberSince) : '–', label: 'Member since' },
               ].map((s, i) => (
                 <View key={s.label} style={[styles.stat, i > 0 && styles.statDivider]}>
@@ -182,7 +228,7 @@ export const ProfileScreen: React.FC = () => {
               ))}
             </View>
 
-            <PressableScale onPress={() => openEditor('all')} style={styles.editProfileBtn}>
+            <PressableScale onPress={openEditor} style={styles.editProfileBtn}>
               <LineIcon name="pencil" size={15} color="#FFFFFF" />
               <Text style={styles.editProfileText}>Edit profile</Text>
             </PressableScale>
@@ -205,110 +251,67 @@ export const ProfileScreen: React.FC = () => {
           </View>
           <Text style={styles.completeHint}>
             {missing.length
-              ? `Add your ${joinNouns(missing.map((m) => m.noun))} to finish setting up.`
+              ? `Add your ${joinNouns(missing.map((m) => m.noun))} in Edit profile to finish setting up.`
               : 'Your profile is complete.'}
           </Text>
         </Rise>
 
-        {/* Personal details */}
-        <Rise delay={210} style={[cardStyle, styles.section]}>
-          <SectionHead title="Personal details" sub="How you appear in reports" onEdit={() => openEditor('personal')} />
-          <InfoRow icon="user" label="Full name" value={name} />
-          <InfoRow icon="mail" label="Email address" value={session?.userEmail ?? ''} />
-          <InfoRow
-            icon="phone"
-            label="Contact number"
-            value={session?.contactNumber ?? ''}
-            onAdd={() => openEditor('personal')}
-          />
+        {/* Account & security */}
+        <Rise delay={210} style={[cardStyle, styles.security]}>
+          <Text style={styles.securityHeading}>Account &amp; security</Text>
+          <Text style={styles.securityIntro}>Keep your account protected</Text>
+          <SecurityRow icon="lock" tint="#FFF3DB" color="#C77A0B" title="Change password" sub="Managed under Settings" onPress={() => tabNav.navigate('Settings')} />
+          <SecurityRow icon="shield" tint={brand.tint} color={brand.primary} title="Signed-in devices" sub="This device" onPress={showDevices} />
         </Rise>
 
-        {/* Academic information */}
-        <Rise delay={290} style={[cardStyle, styles.section]}>
-          <SectionHead title="Academic information" sub="Used on your reports" onEdit={() => openEditor('academic')} />
-          {SECTION_FIELDS.academic.map((k) => (
-            <InfoRow
-              key={k}
-              icon={FIELD_META[k].icon}
-              label={FIELD_META[k].label}
-              value={session?.[k] ?? ''}
-              onAdd={() => openEditor('academic')}
-            />
-          ))}
-        </Rise>
-
-        {/* Password shortcut */}
-        <Rise delay={370}>
-          <Pressable
-            onPress={() => tabNav.navigate('Settings')}
-            style={({ pressed }) => [cardStyle, styles.passwordCard, pressed && { backgroundColor: brand.soft }]}
-          >
-            <View style={[styles.infoIcon, { backgroundColor: '#FFF3DB' }]}>
-              <LineIcon name="lock" size={19} color="#C77A0B" />
-            </View>
-            <View style={styles.flex1}>
-              <Text style={styles.passwordTitle}>Change your password</Text>
-              <Text style={styles.passwordSub}>Managed under Settings</Text>
-            </View>
-            <View style={styles.squareBtn}>
-              <LineIcon name="arrowRight" size={16} color={brand.ink} />
-            </View>
-          </Pressable>
+        {/* Log out */}
+        <Rise delay={290}>
+          <PressableScale onPress={handleLogout} style={styles.logout}>
+            <LineIcon name="logout" size={18} color="#D92D4B" />
+            <Text style={styles.logoutText}>Log out</Text>
+          </PressableScale>
+          <Text style={styles.signedIn}>Signed in as {session?.userEmail}</Text>
         </Rise>
       </ScrollView>
 
-      <BottomSheet visible={editing !== null} onClose={() => setEditing(null)}>
-        <Text style={styles.sheetTitle}>
-          {editing === 'personal' ? 'Personal details' : editing === 'academic' ? 'Academic information' : 'Edit profile'}
-        </Text>
-        <ScrollView
-          style={styles.sheetScroll}
-          contentContainerStyle={styles.sheetFields}
-          keyboardShouldPersistTaps="handled"
-        >
-          {editing &&
-            SECTION_FIELDS[editing].map((k) => (
-              <View key={k} style={styles.fld}>
-                <Text style={styles.fldLabel}>{FIELD_META[k].label.toUpperCase()}</Text>
-                <View style={styles.inp}>
-                  <LineIcon name={FIELD_META[k].icon} size={18} color={brand.icon} />
-                  <TextInput
-                    value={draft[k] ?? ''}
-                    onChangeText={(t) => setDraft((d) => ({ ...d, [k]: t }))}
-                    placeholder={FIELD_META[k].placeholder}
-                    placeholderTextColor={brand.placeholder}
-                    keyboardType={k === 'contactNumber' ? 'phone-pad' : 'default'}
-                    style={styles.inpText}
-                  />
-                </View>
+      {/* Edit profile page; a Modal so it also covers the tab bar, as in the mockup */}
+      <Modal visible={editing} statusBarTranslucent animationType="slide" onRequestClose={() => setEditing(false)}>
+        <KeyboardAvoidingView style={styles.page} behavior="height">
+          <View style={[styles.editHeader, { paddingTop: insets.top, height: 64 + insets.top }]}>
+            <Pressable onPress={() => setEditing(false)} style={styles.editBack} hitSlop={4} accessibilityLabel="Back">
+              <LineIcon name="back" size={18} color={brand.primary} />
+            </Pressable>
+            <Text style={styles.editTitle}>Edit profile</Text>
+          </View>
+          <ScrollView contentContainerStyle={[styles.editMain, { paddingBottom: 16 + insets.bottom }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={[cardStyle, styles.editCard]}>
+              <View>
+                <Text style={styles.editCardTitle}>Personal details</Text>
+                <Text style={styles.editCardSub}>These details show on your reports</Text>
               </View>
-            ))}
-        </ScrollView>
-        <View style={[styles.sheetActions, { marginBottom: insets.bottom }]}>
-          <PressableScale onPress={() => setEditing(null)} style={[styles.sheetBtn, styles.sheetBtnGhost]}>
-            <Text style={styles.sheetBtnGhostText}>Cancel</Text>
-          </PressableScale>
-          <PressableScale onPress={saveDraft} style={[styles.sheetBtn, styles.sheetBtnPrimary]}>
-            <Text style={styles.sheetBtnPrimaryText}>Save changes</Text>
-          </PressableScale>
-        </View>
-      </BottomSheet>
+              {renderField('userName')}
+              <FieldRow icon="mail" label="Email address" value={session?.userEmail ?? ''} readOnly />
+              {renderField('contactNumber')}
+            </View>
+            <View style={[cardStyle, styles.editCard]}>
+              <View>
+                <Text style={styles.editCardTitle}>Academic information</Text>
+                <Text style={styles.editCardSub}>Used on your reports</Text>
+              </View>
+              {ACADEMIC_FIELDS.map(renderField)}
+            </View>
+            <PressableScale onPress={saveDraft} style={styles.saveBtn}>
+              <Text style={styles.saveText}>Save changes</Text>
+            </PressableScale>
+            <PressableScale onPress={() => setEditing(false)} style={styles.cancelBtn}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </PressableScale>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
-
-const SectionHead: React.FC<{ title: string; sub: string; onEdit: () => void }> = ({ title, sub, onEdit }) => (
-  <View style={styles.sectionHead}>
-    <View>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionSub}>{sub}</Text>
-    </View>
-    <PressableScale onPress={onEdit} style={styles.editBtn}>
-      <LineIcon name="pencil" size={15} color={brand.ink} />
-      <Text style={styles.editBtnText}>Edit</Text>
-    </PressableScale>
-  </View>
-);
 
 const styles = StyleSheet.create({
   page: {
@@ -491,65 +494,37 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans[400],
     fontSize: 12.5,
     lineHeight: 18,
-    color: brand.muted,
+    color: '#6B6890',
   },
 
-  // Sections
-  section: {
-    padding: 16,
-    gap: 12,
+  // Account & security
+  security: {
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
   },
-  sectionHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  sectionTitle: {
-    fontFamily: fonts.sans[700],
-    fontSize: 16.5,
+  securityHeading: {
+    marginBottom: 4,
+    fontFamily: fonts.sans[800],
+    fontSize: 16,
+    letterSpacing: -0.16,
     color: brand.ink,
   },
-  sectionSub: {
-    marginTop: 2,
+  securityIntro: {
+    marginBottom: 6,
     fontFamily: fonts.sans[400],
     fontSize: 12.5,
-    color: brand.hint,
+    color: '#6B6890',
   },
-  editBtn: {
+  securityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    height: 34,
-    paddingHorizontal: 12,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: brand.border,
-    backgroundColor: '#FFFFFF',
+    gap: 12,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEDF8',
   },
-  editBtnText: {
-    fontFamily: fonts.sans[700],
-    fontSize: 13,
-    color: brand.ink,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    backgroundColor: brand.soft,
-    borderWidth: 1,
-    borderColor: brand.softLine,
-  },
-  infoRowEmpty: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: brand.dashed,
-  },
-  infoIcon: {
+  rowIcon: {
     width: 40,
     height: 40,
     borderRadius: 13,
@@ -557,121 +532,143 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoLabel: {
-    fontFamily: fonts.mono[500],
-    fontSize: 10.5,
-    letterSpacing: 1.26,
-    color: brand.hint,
-  },
-  infoValue: {
-    marginTop: 3,
-    fontFamily: fonts.sans[700],
-    fontSize: 14.5,
-    color: brand.ink,
-  },
-  notAdded: {
-    fontFamily: fonts.sans[600],
-    color: brand.placeholder,
-  },
-  addLink: {
-    fontFamily: fonts.sans[700],
-    color: brand.primary,
-  },
-
-  // Password shortcut
-  passwordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-  },
-  passwordTitle: {
-    fontFamily: fonts.sans[700],
+  securityTitle: {
+    fontFamily: fonts.sans[800],
     fontSize: 14,
     color: brand.ink,
   },
-  passwordSub: {
+  securitySub: {
     marginTop: 1,
     fontFamily: fonts.sans[400],
     fontSize: 12,
-    color: brand.muted,
-  },
-  squareBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: brand.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    color: '#6B6890',
   },
 
-  // Edit sheet
-  sheetTitle: {
-    fontFamily: fonts.sans[800],
-    fontSize: 20,
-    color: brand.ink,
-  },
-  sheetScroll: {
-    maxHeight: 420,
-  },
-  sheetFields: {
-    gap: 14,
-  },
-  fld: {
-    gap: 8,
-  },
-  fldLabel: {
-    fontFamily: fonts.sans[800],
-    fontSize: 11.5,
-    letterSpacing: 1.04,
-    color: brand.label,
-  },
-  inp: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  // Log out
+  logout: {
     height: 50,
-    paddingHorizontal: 15,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: brand.border,
+    borderColor: '#F6C3CC',
     backgroundColor: '#FFFFFF',
-  },
-  inpText: {
-    flex: 1,
-    paddingVertical: 0,
-    fontFamily: fonts.sans[400],
-    fontSize: 15,
-    color: brand.ink,
-  },
-  sheetActions: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
   },
-  sheetBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 13,
+  logoutText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 14.5,
+    color: '#D92D4B',
+  },
+  signedIn: {
+    marginTop: 10,
+    fontFamily: fonts.sans[400],
+    fontSize: 12,
+    color: '#8B89AD',
+    textAlign: 'center',
+  },
+
+  // Edit profile
+  editHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEDF8',
+  },
+  editBack: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3E2F4',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sheetBtnGhost: {
+  editTitle: {
+    fontFamily: fonts.sans[800],
+    fontSize: 16,
+    color: brand.ink,
+  },
+  editMain: {
+    padding: 16,
+    gap: 12,
+  },
+  editCard: {
+    padding: 16,
+    gap: 14,
+  },
+  editCardTitle: {
+    fontFamily: fonts.sans[800],
+    fontSize: 16.5,
+    color: brand.ink,
+  },
+  editCardSub: {
+    marginTop: 2,
+    fontFamily: fonts.sans[400],
+    fontSize: 12.5,
+    color: '#7D7B9E',
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: brand.border,
+    borderColor: '#DCDAF2',
     backgroundColor: '#FFFFFF',
   },
-  sheetBtnGhostText: {
+  fieldLabel: {
+    fontFamily: fonts.mono[500],
+    fontSize: 10.5,
+    letterSpacing: 1.26,
+    color: '#7D7B9E',
+  },
+  fieldInput: {
+    marginTop: 3,
+    padding: 0,
     fontFamily: fonts.sans[700],
     fontSize: 14.5,
     color: brand.ink,
   },
-  sheetBtnPrimary: {
-    backgroundColor: brand.primary,
+  fieldInputReadOnly: {
+    color: '#6B6890',
   },
-  sheetBtnPrimaryText: {
+  saveBtn: {
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: brand.primary,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  saveText: {
     fontFamily: fonts.sans[800],
     fontSize: 14.5,
     color: '#FFFFFF',
+  },
+  cancelBtn: {
+    height: 46,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#DCDAF2',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelText: {
+    fontFamily: fonts.sans[800],
+    fontSize: 14.5,
+    color: brand.primary,
   },
 });

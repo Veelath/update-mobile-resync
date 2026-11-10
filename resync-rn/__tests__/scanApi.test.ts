@@ -16,6 +16,7 @@ jest.mock('../src/services/session', () => ({ saveSession: jest.fn() }));
 import {
   apiClient,
   ApiError,
+  getCreditBalanceApi,
   LONG_PROCESSING_THRESHOLD_MS,
   pollScan,
   scanFailureFromError,
@@ -40,6 +41,22 @@ beforeEach(() => {
   jest.mocked(supabase.auth.getSession).mockResolvedValue({
     data: { session: { access_token: 'token', user: { id: 'user-1' } } }, error: null,
   } as any);
+});
+
+describe('credits', () => {
+  it('reads the balance for the signed-in user', async () => {
+    const request = jest.spyOn(apiClient, 'request').mockResolvedValue({ data: { user_id: 'user-1', balance: 7 } } as any);
+    await expect(getCreditBalanceApi()).resolves.toBe(7);
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'api/credits/balance',
+      headers: expect.objectContaining({ 'X-User-Id': 'user-1', Authorization: 'Bearer token' }),
+    }));
+  });
+
+  it('does not invent a balance when the request fails', async () => {
+    jest.spyOn(apiClient, 'request').mockRejectedValue(new Error('offline'));
+    await expect(getCreditBalanceApi()).rejects.toThrow('offline');
+  });
 });
 
 describe('scan polling', () => {

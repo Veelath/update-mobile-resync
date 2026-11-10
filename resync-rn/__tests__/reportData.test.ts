@@ -1,5 +1,5 @@
-import { it, expect } from '@jest/globals';
-import { MANUSCRIPT_BLOCKS, overallScore, RECOMMENDATIONS, SCORE_CATEGORIES } from '../src/data/report';
+import { describe, it, expect } from '@jest/globals';
+import { categoryPercent, liveScoreCategories, MANUSCRIPT_BLOCKS, overallScore, RECOMMENDATIONS, SCORE_CATEGORIES } from '../src/data/report';
 
 it('points every recommendation at exactly one manuscript passage', () => {
   for (const rec of RECOMMENDATIONS) {
@@ -16,4 +16,37 @@ it('keeps each manuscript paragraph to a single finding', () => {
 
 it('averages only the categories that apply, rounded up', () => {
   expect(overallScore(SCORE_CATEGORIES)).toBe(62);
+});
+
+describe('liveScoreCategories', () => {
+  const check = (score: number, items: number, passed: number) => ({ score, items, passed, flow: { items: 8, passed: 2 }, cross: { items: 8, passed: 8 } });
+
+  it('uses the backend score and counts, in the report order, and averages to the overall score', () => {
+    const categories = liveScoreCategories({
+      dimensions: { claim_support: 0.3682 },
+      dimension_breakdown: {
+        logical_support: check(77.79, 16, 10),
+        evidence_consistency: { score: 100, items: 1, passed: 1 },
+        context_alignment: check(82.06, 16, 11),
+        operational_alignment: check(70.85, 16, 9),
+      },
+    });
+    expect(categories.map((c) => c.name)).toEqual(['Context Alignment', 'Operational Alignment', 'Logical Support', 'Evidence Consistency']);
+    expect(categories.map(categoryPercent)).toEqual([82.06, 70.85, 77.79, 100]);
+    expect(categories[0]).toMatchObject({ correct: 11, total: 16, flow: { passed: 2 }, cross: { passed: 8 } });
+    expect(overallScore(categories)).toBe(83);
+  });
+
+  it('marks a check with nothing to compare as not applicable', () => {
+    const [category] = liveScoreCategories({ dimension_breakdown: { evidence_consistency: { score: null, items: 0, passed: 0 } } });
+    expect(categoryPercent(category)).toBeNull();
+    expect(category.naCaption).toBeTruthy();
+  });
+
+  it('scales the 0 to 1 averages of older scans to percentages', () => {
+    const categories = liveScoreCategories({ dimensions: { claim_support: 0.3682, numeric_consistency: null } });
+    expect(categories).toHaveLength(1);
+    expect(categoryPercent(categories[0])).toBeCloseTo(36.82);
+    expect(categories[0].total).toBeUndefined();
+  });
 });

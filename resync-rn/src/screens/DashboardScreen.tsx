@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, StatusBar, Image } from 'react-native';
 import * as SvgModule from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -7,12 +7,17 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
-import { getSession, creditsAvailable } from '../services/session';
+import { getSession } from '../services/session';
+import { useCreditBalance } from '../services/credits';
 import { initialsOf } from '../components/AppHeader';
 import { IssueTag, useBobClock } from '../components/IssueTag';
 import { LineIcon, LineIconName } from '../components/LineIcon';
 import { Rise } from '../components/Rise';
 import { PressableScale } from '../components/PressableScale';
+import { BackgroundScanProgress } from '../components/scan/BackgroundScanProgress';
+import { NotificationBell } from '../components/NotificationBell';
+import { useActiveScan } from '../services/activeScan';
+import { takePendingScanId } from '../services/notifications';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const { Defs, Pattern, Circle, Rect, RadialGradient, LinearGradient: SvgLinearGradient, Stop, Mask } = SvgModule;
@@ -101,15 +106,19 @@ export const DashboardScreen: React.FC = () => {
   const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const bob = useBobClock();
-  const [credits, setCredits] = useState(0);
+  const [credits] = useCreditBalance();
   const [userName, setUserName] = useState('');
+  const activeScan = useActiveScan();
+
+  // A notification tapped before sign-in finished opens its report here
+  useEffect(() => {
+    const scanId = takePendingScanId();
+    if (scanId) rootNav.navigate('Report', { scanId });
+  }, [rootNav]);
 
   useFocusEffect(
     useCallback(() => {
-      getSession().then((s) => {
-        setCredits(creditsAvailable(s));
-        setUserName(s.userName);
-      });
+      getSession().then((s) => setUserName(s.userName));
     }, []),
   );
 
@@ -127,19 +136,16 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.topRight}>
           <Pressable onPress={() => tabNav.navigate('Credits')} style={styles.creditsChip} hitSlop={4}>
             <LineIcon name="star" size={17} color={C.brand} />
-            <Text style={styles.creditsText}>Credits: {credits}</Text>
+            <Text style={styles.creditsText}>Credits: {credits ?? '–'}</Text>
           </Pressable>
-          <View style={styles.bell}>
-            <LineIcon name="bell" size={18} color={C.sub} />
-            <View style={styles.bellDot} />
-          </View>
+          <NotificationBell />
           <Pressable onPress={() => tabNav.navigate('Profile')} style={styles.avatar} hitSlop={4}>
             <Text style={styles.avatarText}>{initials}</Text>
           </Pressable>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, activeScan && styles.scrollWithProgress]}>
         {/* Hero */}
         <View style={styles.hero}>
           <HeroBackdrop />
@@ -235,6 +241,8 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      <BackgroundScanProgress />
     </View>
   );
 };
@@ -246,6 +254,9 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingBottom: 40,
+  },
+  scrollWithProgress: {
+    paddingBottom: 110,
   },
 
   // Top bar
@@ -285,24 +296,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans[800],
     fontSize: 12.5,
     color: C.brand,
-  },
-  bell: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellDot: {
-    position: 'absolute',
-    right: 8,
-    top: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3B82F6',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   avatar: {
     width: 34,

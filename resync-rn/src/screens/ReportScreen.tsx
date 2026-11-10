@@ -10,6 +10,7 @@ import {
   Alert,
   StatusBar,
   Clipboard,
+  Modal,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
@@ -24,7 +25,10 @@ import { LineIcon } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
 import {
   ALL_CLEAR_LINKS,
+  categoryGroups,
   categoryPercent,
+  CheckGroup,
+  liveScoreCategories,
   Citation,
   CITATIONS,
   FREE_MANUSCRIPT_BLOCKS,
@@ -37,9 +41,9 @@ import {
   SCORE_CATEGORIES,
   ScoreCategory,
 } from '../data/report';
-import { ScanItem } from '../data/scans';
+import { CheckCount, ScanItem } from '../data/scans';
 import { getAllScans, unlockScan } from '../services/scanRepository';
-import { creditsAvailable, getSession } from '../services/session';
+import { useCreditBalance } from '../services/credits';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 type ReportView = 'report' | 'manuscript';
@@ -57,7 +61,7 @@ const notify = (message: string) => {
   else Alert.alert('Notice', message);
 };
 
-const creditsLabel = (n: number) => `You have ${n} ${n === 1 ? 'credit' : 'credits'}`;
+const creditsLabel = (n: number | null) => (n === null ? 'Checking your credits…' : `You have ${n} ${n === 1 ? 'credit' : 'credits'}`);
 
 /** Score ring split into one arc per category, each filled to that category's score. */
 const CategoryRing: React.FC<{ score: number; categories: ScoreCategory[] }> = ({ score, categories }) => (
@@ -115,9 +119,111 @@ const CategoryCard: React.FC<{ category: ScoreCategory; open: boolean; onPress: 
           <Text style={styles.catUnit}>%</Text>
         </View>
       )}
-      <Text style={styles.catCaption}>{pct === null ? c.naCaption : `${c.correct} out of ${c.total} correct`}</Text>
+      <Text style={styles.catCaption}>{pct === null ? c.naCaption : c.total === undefined ? `${Math.round(pct)} out of 100` : `${c.correct} out of ${c.total} correct`}</Text>
       <Bar pct={pct ?? 0} color={c.color} />
     </Pressable>
+  );
+};
+
+const GROUP_FULL = '#00C875';
+const GROUP_PART = '#F7C100';
+const GROUP_LOST = '#E6E5EE';
+
+const pctText = (n: number) => `${+n.toFixed(2)}%`;
+
+/** Bar split into full points, part points and points lost. */
+const PointsBar: React.FC<{ full: number; part: number }> = ({ full, part }) => (
+  <View style={styles.pointsBar}>
+    <View style={{ width: `${full}%`, backgroundColor: GROUP_FULL }} />
+    <View style={{ width: `${part}%`, backgroundColor: GROUP_PART }} />
+  </View>
+);
+
+const Legend: React.FC = () => (
+  <View style={styles.legend}>
+    {[
+      ['full points', GROUP_FULL],
+      ['part points', GROUP_PART],
+      ['points lost', GROUP_LOST],
+    ].map(([label, color]) => (
+      <View key={label} style={styles.legendItem}>
+        <View style={[styles.legendDot, { backgroundColor: color }]} />
+        <Text style={styles.legendText}>{label}</Text>
+      </View>
+    ))}
+  </View>
+);
+
+const groupParts = (g: CheckGroup) => {
+  const full = (g.count.passed / g.count.items) * 100;
+  const part = g.percent === undefined ? 0 : Math.max(0, Math.min(100 - full, g.percent - full));
+  return { full, part };
+};
+
+const bothKnown = (groups: CheckGroup[]) => groups.length === 2 && groups.every((g) => g.percent !== undefined);
+
+const CategoryDetail: React.FC<{ category: ScoreCategory; groups: CheckGroup[]; visible: boolean; onClose: () => void }> = ({
+  category: c,
+  groups,
+  visible,
+  onClose,
+}) => {
+  const pct = categoryPercent(c);
+  const formula = groups.length === 2 ? `Score = ½ × ${groups[0].label} + ½ × ${groups[1].label}` : `Score = ${groups[0]?.label ?? c.name}`;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable style={styles.detailScrim} onPress={onClose}>
+        <Pressable style={styles.detailCard} onPress={() => {}}>
+          <View style={styles.detailHead}>
+            <View style={styles.flex1}>
+              <View style={styles.catLabelRow}>
+                <View style={[styles.legendDot, { backgroundColor: c.color }]} />
+                <Text style={styles.detailTitle}>
+                  {c.name}: {pct === null ? 'n/a' : pctText(pct)}
+                </Text>
+              </View>
+              <Text style={styles.detailDesc}>{c.desc}</Text>
+            </View>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <Text style={styles.detailClose}>Close</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.detailBody}>
+            <Legend />
+            {groups.map((g) => {
+              const { full, part } = groupParts(g);
+              const points = g.percent === undefined ? undefined : +((g.percent / 100) * g.count.items).toFixed(2);
+              return (
+                <View key={g.label}>
+                  <Text style={styles.detailGroup}>
+                    {g.label}: {g.count.passed} of {g.count.items}
+                  </Text>
+                  <PointsBar full={full} part={part} />
+                  <Text style={styles.detailLine}>
+                    {g.count.passed} of {g.count.items} are correct (full point).
+                    {g.percent !== undefined && g.percent > full
+                      ? ` The others still earned part of a point, so together they earned ${points} of ${g.count.items} points = ${pctText(g.percent)}.`
+                      : g.count.passed < g.count.items
+                        ? ' The others earned little or nothing.'
+                        : ''}
+                  </Text>
+                </View>
+              );
+            })}
+            {pct !== null && (
+              <View style={styles.putBox}>
+                <Text style={styles.putTitle}>Putting it together</Text>
+                <Text style={styles.putFormula}>{formula}</Text>
+                <Text style={styles.putCalc}>
+                  {bothKnown(groups) ? `= ½ × ${pctText(groups[0].percent!)} + ½ × ${pctText(groups[1].percent!)} = ${pctText(pct)}` : `= ${pctText(pct)}`}
+                </Text>
+                <Bar pct={pct} color={c.color} />
+              </View>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 };
 
@@ -127,7 +233,10 @@ const CategoryPopover: React.FC<{ category: ScoreCategory; top: number; arrowLef
   arrowLeft,
   onClose,
 }) => {
+  const [detail, setDetail] = useState(false);
   const pct = categoryPercent(c);
+  const groups = categoryGroups(c);
+  const totalChecks = groups.reduce((n, g) => n + g.count.items, 0);
   return (
     <View style={[styles.pop, { top }]}>
       <View style={[styles.popArrow, { left: arrowLeft }]} />
@@ -140,7 +249,7 @@ const CategoryPopover: React.FC<{ category: ScoreCategory; top: number; arrowLef
           <Text style={styles.popNa}>Not applicable</Text>
         ) : (
           <Text style={styles.popUnit}>
-            <Text style={styles.popScore}>{pct.toFixed(2)}</Text>%
+            <Text style={styles.popScore}>{+pct.toFixed(2)}</Text>%
           </Text>
         )}
       </View>
@@ -149,18 +258,51 @@ const CategoryPopover: React.FC<{ category: ScoreCategory; top: number; arrowLef
         <Text style={styles.popNote}>{c.naNote}</Text>
       ) : (
         <>
-          {['Flow between neighboring sections', 'Chapters that should agree'].map((label) => (
-            <View key={label}>
-              <View style={styles.popRow}>
-                <Text style={styles.popRowLabel}>{label}</Text>
-                <Text style={styles.popRowValue}>
-                  {c.correct} out of {c.total} correct
+          <Legend />
+          {groups.map((g) => {
+            const { full, part } = groupParts(g);
+            return (
+              <View key={g.label}>
+                <Text style={styles.popGroup}>
+                  {g.label}: {g.count.passed} out of {g.count.items}
+                </Text>
+                <PointsBar full={full} part={part} />
+                <Text style={styles.popBasis}>
+                  <Text style={styles.popBasisBold}>Basis:</Text> The system checked {g.count.items} {g.count.items === 1 ? 'pair' : 'pairs'} of sections.{'\n'}
+                  <Text style={styles.popBasisBold}>Result:</Text> {g.count.passed} got full points.
+                  {g.count.passed < g.count.items ? ' The rest got partial points.' : ''}
                 </Text>
               </View>
-              <Bar pct={pct} color={c.color} />
-            </View>
-          ))}
-          <Text style={styles.popNote}>Each counts for half of this score, so the many chapter checks cannot hide weak flow.</Text>
+            );
+          })}
+          {groups.length > 0 && (
+            <Pressable onPress={() => setDetail(true)} style={styles.computeBox}>
+              <Text style={styles.computeHead}>How are these computed</Text>
+              <Text style={styles.computeLine}>
+                Total Checks = {groups.map((g) => g.count.items).join(' + ')}
+                {groups.length > 1 ? ` = ${totalChecks}` : ''}
+              </Text>
+              {groups.map((g) =>
+                g.percent === undefined ? null : (
+                  <Text key={g.label} style={styles.computeLine}>
+                    {g.label} = {+((g.percent / 100) * g.count.items).toFixed(2)} points ÷ {g.count.items} = {pctText(g.percent)}
+                  </Text>
+                ),
+              )}
+              <Text style={[styles.computeLine, styles.computeStrong]}>
+                Category Score = {bothKnown(groups) ? `(${pctText(groups[0].percent!)} + ${pctText(groups[1].percent!)}) ÷ 2 = ` : ''}
+                {pctText(pct)}
+              </Text>
+              {groups.length === 2 && <Text style={styles.computeLine}>50/50 weighting: each group counts for half.</Text>}
+            </Pressable>
+          )}
+          {groups.length > 0 && (
+            <Text style={styles.stepLink} onPress={() => setDetail(true)}>
+              Tap the box for the step-by-step view.
+            </Text>
+          )}
+          {groups.some((g) => g.count.items < 3) && <Text style={styles.popWarn}>A group has under 3 checks: one check moves the score a lot.</Text>}
+          <CategoryDetail category={c} groups={groups} visible={detail} onClose={() => setDetail(false)} />
         </>
       )}
       <Pressable onPress={onClose} style={styles.popClose}>
@@ -268,24 +410,6 @@ const Paragraph: React.FC<{ text: string; activeId?: string; onPick: (rec: Repor
 const BLOCK_STYLE = (kind: ManuscriptBlock['kind']) =>
   kind === 'chapter' ? styles.paperChapter : kind === 'heading' ? styles.paperHeading : styles.paperText;
 
-const LIVE_CATEGORY_META: Record<string, { name: string; color: string; desc: string }> = {
-  objectives_alignment: { name: 'Objectives Alignment', color: '#F5A524', desc: 'How well the research objectives align across sections.' },
-  methodology_fit: { name: 'Methodology Fit', color: '#10B981', desc: 'How well the methods support the stated objectives.' },
-  numeric_consistency: { name: 'Numeric Consistency', color: '#C4C2DA', desc: 'How consistently numeric claims agree.' },
-  claim_support: { name: 'Claim Support', color: '#F43F5E', desc: 'How well claims are supported by the manuscript.' },
-};
-
-const liveCategories = (scan: ScanItem | null): ScoreCategory[] => Object.entries(scan?.result?.score_breakdown?.dimensions || {})
-  .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
-  .map(([id, score]) => ({
-    id,
-    name: LIVE_CATEGORY_META[id]?.name || id.replace(/_/g, ' '),
-    color: LIVE_CATEGORY_META[id]?.color || brand.primary,
-    desc: LIVE_CATEGORY_META[id]?.desc || 'Backend score dimension.',
-    correct: score,
-    total: 100,
-  }));
-
 const liveRecommendations = (scan: ScanItem | null): ReportRecommendation[] => (scan?.result?.recommendations || []).map((recommendation) => ({
   id: recommendation.recommendation_id,
   tag: `${recommendation.recommendation_priority} priority`,
@@ -316,7 +440,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const [loaded, setLoaded] = useState(false);
   const [scan, setScan] = useState<ScanItem | null>(null);
-  const [credits, setCredits] = useState(0);
+  const [credits, setCredits] = useCreditBalance();
   const [view, setView] = useState<ReportView>('report');
   const [tab, setTab] = useState<ReportTab>('recs');
   const [openCategory, setOpenCategory] = useState<number | null>(null);
@@ -333,9 +457,8 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
   const scrollToRec = useRef<ReportRecommendation | null>(null);
 
   const load = useCallback(async () => {
-    const [session, scans] = await Promise.all([getSession(), getAllScans()]);
+    const scans = await getAllScans();
     setScan(scans.find((s) => s.id === scanId) ?? null);
-    setCredits(creditsAvailable(session));
     setLoaded(true);
   }, [scanId]);
 
@@ -349,14 +472,15 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
   const locked = isLiveScan ? scan?.result?.access?.unlocked === false : scan?.unlocked === false;
   const lockedCounts = scan?.result?.access?.locked_counts;
   const lockedCount = isLiveScan ? lockedCounts?.recommendations || 0 : RECOMMENDATIONS.length - FREE_RECOMMENDATIONS;
-  const categories = isLiveScan ? liveCategories(scan) : SCORE_CATEGORIES;
+  const categories = isLiveScan ? liveScoreCategories(scan?.result?.score_breakdown) : SCORE_CATEGORIES;
   const score = isLiveScan ? scan?.result?.overall_coherence_score || 0 : overallScore(SCORE_CATEGORIES);
   const recs = isLiveScan ? liveRecommendations(scan) : (locked ? RECOMMENDATIONS.slice(0, FREE_RECOMMENDATIONS) : RECOMMENDATIONS);
   const allCitations = isLiveScan ? liveCitations(scan) : CITATIONS;
   const citations = allCitations
     .map((c, i) => ({ c, number: i + 1 }))
     .filter(({ c }) => citationFilter === null || c.accessible === citationFilter);
-  const openBlocks = isLiveScan ? liveManuscriptBlocks(scan) : (locked ? MANUSCRIPT_BLOCKS.slice(0, FREE_MANUSCRIPT_BLOCKS) : MANUSCRIPT_BLOCKS);
+  const manuscriptBlocks = isLiveScan ? liveManuscriptBlocks(scan) : MANUSCRIPT_BLOCKS;
+  const openBlocks = locked ? manuscriptBlocks.slice(0, FREE_MANUSCRIPT_BLOCKS) : manuscriptBlocks;
 
   const unlock = async () => {
     if (!scan || unlocking.current) return;
@@ -372,10 +496,11 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  // While the balance is unknown the button still offers the unlock; the backend refuses it without credits
   const unlockAction =
-    credits > 0
-      ? { label: 'Unlock full report · 1 credit', onPress: unlock }
-      : { label: 'Buy credits', onPress: () => navigation.navigate('Main', { screen: 'Credits' }) };
+    credits === 0
+      ? { label: 'Buy credits', onPress: () => navigation.navigate('Main', { screen: 'Credits' }) }
+      : { label: 'Unlock full report · 1 credit', onPress: unlock };
 
   // Bring the tapped row to the top so the whole popover clears the unlock bar
   const toggleCategory = (index: number) => {
@@ -589,18 +714,9 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.doneText}>Analysis complete</Text>
             </View>
             {locked ? (
-              <>
-              {isLiveScan && (
-                <Text style={styles.overall}>
-                  Free preview: <Text style={styles.overallBold}>{recs.length} finding{recs.length === 1 ? '' : 's'} shown</Text>. Unlock to see {lockedCounts?.sections || 0} more sections.
-                </Text>
-              )}
-              {!isLiveScan && (
               <Text style={styles.overall}>
-                Free preview · <Text style={styles.overallBold}>{FREE_RECOMMENDATIONS} finding shown</Text> · Unlock to see all
+                Free preview · <Text style={styles.overallBold}>{recs.length} finding{recs.length === 1 ? '' : 's'} shown</Text> · Unlock to see all
               </Text>
-              )}
-              </>
             ) : isLiveScan ? (
               <Text style={styles.overall}>
                 Overall assessment <Text style={styles.overallBold}>{scan?.result?.score_breakdown?.band || 'Completed'}</Text>. {recs.length} findings across {scan?.result?.sections_analyzed.length || 0} sections.
@@ -628,8 +744,9 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
             ))}
 
-            {locked && !isLiveScan && (
+            {locked && (
               <View style={styles.lockWrap}>
+                {/* Decorative: the backend doesn't send locked text, so live reports blur the sample manuscript */}
                 <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                   {MANUSCRIPT_BLOCKS.slice(FREE_MANUSCRIPT_BLOCKS).map((b, i) => (
                     <Text key={i} style={[BLOCK_STYLE(b.kind), styles.blurred]}>
@@ -640,18 +757,6 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.lockCard}>
                   <LineIcon name="lock" size={22} color={brand.primary} />
                   <Text style={styles.lockTitle}>Unlock the full report to read every section and see all {lockedCount} more recommendations</Text>
-                  <PressableScale onPress={unlockAction.onPress} style={styles.lockBtn}>
-                    <Text style={styles.lockBtnText}>{unlockAction.label}</Text>
-                  </PressableScale>
-                  <Text style={styles.lockHint}>{creditsLabel(credits)}</Text>
-                </View>
-              </View>
-            )}
-            {locked && isLiveScan && (
-              <View style={styles.lockWrap}>
-                <View style={styles.lockCard}>
-                  <LineIcon name="lock" size={22} color={brand.primary} />
-                  <Text style={styles.lockTitle}>Unlock the full report to read {lockedCounts?.sections || 0} more sections and see all {lockedCount} more recommendations</Text>
                   <PressableScale onPress={unlockAction.onPress} style={styles.lockBtn}>
                     <Text style={styles.lockBtnText}>{unlockAction.label}</Text>
                   </PressableScale>
@@ -1028,6 +1133,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: brand.primary,
   },
+
+  // Category detail
+  pointsBar: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 5,
+    backgroundColor: GROUP_LOST,
+    overflow: 'hidden',
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendText: { fontFamily: fonts.sans[400], fontSize: 11.5, color: '#4C4A6B' },
+  popGroup: { marginTop: 8, fontFamily: fonts.sans[800], fontSize: 13.5, color: '#1A0F4B' },
+  popBasis: { fontFamily: fonts.sans[400], fontSize: 12, lineHeight: 17, color: '#4C4A6B' },
+  popBasisBold: { fontFamily: fonts.sans[800], color: '#1A0F4B' },
+  computeBox: { marginTop: 8, padding: 12, gap: 2, borderRadius: 12, borderWidth: 1, borderColor: '#EEEDF4', backgroundColor: '#F6F6FA' },
+  computeHead: { fontFamily: fonts.sans[800], fontSize: 13, color: '#1A0F4B', marginBottom: 2 },
+  computeLine: { fontFamily: fonts.sans[400], fontSize: 12, lineHeight: 19, color: '#2A2750' },
+  computeStrong: { fontFamily: fonts.sans[800], color: '#1A0F4B' },
+  stepLink: { marginTop: 4, fontFamily: fonts.sans[700], fontSize: 12, color: '#6A0DC9' },
+  popWarn: {
+    marginTop: 4,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1EBB5',
+    backgroundColor: '#FBF9E3',
+    fontFamily: fonts.sans[400],
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#8A4B00',
+  },
+  detailScrim: { flex: 1, justifyContent: 'center', padding: 10, backgroundColor: 'rgba(11,10,46,0.5)' },
+  detailCard: { maxHeight: '90%', borderRadius: 18, backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  detailHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 18, paddingBottom: 8 },
+  detailTitle: { flexShrink: 1, fontFamily: fonts.sans[800], fontSize: 17, color: '#1A0F4B' },
+  detailDesc: { marginTop: 4, fontFamily: fonts.sans[400], fontSize: 12, lineHeight: 17, color: '#6B6890' },
+  detailClose: { fontFamily: fonts.sans[700], fontSize: 14, color: '#6B6890' },
+  detailBody: { paddingHorizontal: 18, paddingBottom: 18, gap: 4 },
+  detailGroup: { marginTop: 14, fontFamily: fonts.sans[800], fontSize: 15, color: '#1A0F4B' },
+  detailLine: { fontFamily: fonts.sans[400], fontSize: 12.5, lineHeight: 19, color: '#2A2750' },
+  putBox: { marginTop: 18, padding: 14, gap: 6, borderRadius: 12, backgroundColor: '#F6F6FA' },
+  putTitle: { fontFamily: fonts.sans[800], fontSize: 13, color: '#1A0F4B' },
+  putFormula: { fontFamily: fonts.sans[800], fontSize: 14.5, color: '#1A0F4B' },
+  putCalc: { fontFamily: fonts.sans[600], fontSize: 12, color: '#2A2750' },
 
   // Tabs
   tabs: {

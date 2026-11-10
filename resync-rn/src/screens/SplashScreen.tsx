@@ -4,8 +4,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { getSession } from '../services/session';
 import { BrandBackdrop } from '../components/BrandBackdrop';
-import { fonts } from '../theme/colors';
-import { brand } from '../theme/brand';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Splash'>;
@@ -29,9 +27,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const wordX = useRef(new Animated.Value(-26)).current;
   const wordReveal = useRef(new Animated.Value(0)).current; // JS-driven clip width
 
-  const tagOpacity = useRef(new Animated.Value(0)).current;
-  const tagY = useRef(new Animated.Value(10)).current;
-
   useEffect(() => {
     const timing = (v: Animated.Value, toValue: number, from: number, to: number, easing = easeOut, native = true) =>
       Animated.timing(v, { toValue, delay: T(from), duration: T(to - from), easing, useNativeDriver: native });
@@ -44,9 +39,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       // Wordmark: wipes in from the left while drifting into place
       timing(wordOpacity, 1, 32, 60),
       timing(wordX, 0, 32, 60),
-      // Tagline: rises in last
-      timing(tagOpacity, 1, 50, 68),
-      timing(tagY, 0, 50, 68),
     ]);
     const reveal = timing(wordReveal, WORDMARK_WIDTH, 32, 60, easeOut, false);
     anim.start();
@@ -68,7 +60,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       reveal.stop();
       clearTimeout(navTimer);
     };
-  }, [navigation, markOpacity, markScale, markX, wordOpacity, wordX, wordReveal, tagOpacity, tagY]);
+  }, [navigation, markOpacity, markScale, markX, wordOpacity, wordX, wordReveal]);
 
   return (
     <BrandBackdrop
@@ -108,12 +100,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
             </Animated.View>
           </Animated.View>
         </View>
-
-        <Animated.Text
-          style={[styles.tagline, { opacity: tagOpacity, transform: [{ translateY: tagY }] }]}
-        >
-          Manuscript coherence,{'\n'}checked end-to-end.
-        </Animated.Text>
       </View>
     </BrandBackdrop>
   );
@@ -151,13 +137,5 @@ const styles = StyleSheet.create({
     width: 111,
     marginLeft: 14,
     tintColor: LOGO_BLUE,
-  },
-  tagline: {
-    marginTop: 26,
-    fontFamily: fonts.sans[400],
-    fontSize: 14.5,
-    lineHeight: 22,
-    color: brand.sub,
-    textAlign: 'center',
   },
 });

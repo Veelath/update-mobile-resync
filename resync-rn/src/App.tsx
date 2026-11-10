@@ -1,14 +1,12 @@
 import React, { useEffect } from 'react';
 import { Alert, Linking, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { RootNavigator } from './navigation/RootNavigator';
-import { RootStackParamList } from './navigation/types';
+import { navigationRef as navigation } from './navigation/navigationRef';
 import { completeAuthRedirect } from './services/api';
 
 export default function App() {
-  const navigation = useNavigationContainerRef<RootStackParamList>();
-
   useEffect(() => {
     const handled = new Set<string>();
     const handleUrl = async (url: string | null) => {
@@ -27,7 +25,7 @@ export default function App() {
       Alert.alert('Authentication Error', 'Unable to read the sign-in link. Please try again.');
     });
     return () => subscription.remove();
-  }, [navigation]);
+  }, []);
 
   return (
     <SafeAreaProvider>

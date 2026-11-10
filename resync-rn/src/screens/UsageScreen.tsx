@@ -1,41 +1,54 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, Alert, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainTabParamList, RootStackParamList } from '../navigation/types';
+import { MainTabParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
 import { brand, cardStyle } from '../theme/brand';
-import { getSession, creditsAvailable, UserSession } from '../services/session';
-import { getAllScans } from '../services/scanRepository';
-import { ScanItem } from '../data/scans';
+import { getSession, UserSession } from '../services/session';
+import { CreditLedgerEntry, getCreditHistoryApi } from '../services/api';
+import { useCreditBalance } from '../services/credits';
 import { AppHeader, initialsOf } from '../components/AppHeader';
 import { LineIcon } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
 import { Rise } from '../components/Rise';
+import { BuyCreditsSheet } from '../components/credits/BuyCreditsSheet';
 
-const CREDITS_PER_SCAN = 1;
-
-const comingSoon = () => Alert.alert('Top up credits', 'Buying more credits is coming soon.');
+const formatWhen = (iso: string) =>
+  new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 export const UsageScreen: React.FC = () => {
   const tabNav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [session, setSession] = useState<UserSession | null>(null);
-  const [scans, setScans] = useState<ScanItem[]>([]);
+  const [available, setAvailable] = useCreditBalance();
+  const [history, setHistory] = useState<CreditLedgerEntry[] | null>(null);
+  const [buying, setBuying] = useState(false);
+
+  const loadHistory = useCallback(() => {
+    getCreditHistoryApi()
+      .then(setHistory)
+      .catch(() => {});
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       getSession().then(setSession);
-      getAllScans().then(setScans);
-    }, []),
+      loadHistory();
+    }, [loadHistory]),
   );
 
-  const total = session?.creditsTotal ?? 0;
-  const used = session?.scansCount ?? 0;
-  const available = session ? creditsAvailable(session) : 0;
-  const usedPct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
+  const used = history ? history.reduce((sum, e) => (e.delta < 0 ? sum - e.delta : sum), 0) : null;
+  const total = available !== null && used !== null ? available + used : null;
+  const usedPct = total ? Math.min(100, ((used ?? 0) / total) * 100) : 0;
+  const purchases = (history ?? []).filter((e) => e.delta > 0);
+
+  const onPurchased = (balance: number, added: number) => {
+    setBuying(false);
+    setAvailable(balance);
+    loadHistory();
+    Alert.alert('Credits added', `${added} ${added === 1 ? 'credit was' : 'credits were'} added. You now have ${balance}.`);
+  };
 
   return (
     <View style={styles.page}>
@@ -50,6 +63,7 @@ export const UsageScreen: React.FC = () => {
         <Rise delay={50}>
           <Text style={styles.eyebrow}>ACCOUNT USAGE</Text>
           <Text style={styles.h1}>Usage &amp; credits</Text>
+          <Text style={styles.intro}>View your available credits and current usage.</Text>
         </Rise>
 
         {/* Balance */}
@@ -62,21 +76,22 @@ export const UsageScreen: React.FC = () => {
           >
             <View style={styles.balanceTop}>
               <View style={styles.balanceIcon}>
-                <LineIcon name="star" size={17} color="#FFFFFF" />
+                <LineIcon name="coin" size={20} color="#FFFFFF" />
               </View>
-              <PressableScale onPress={comingSoon} style={styles.topUp}>
-                <LineIcon name="plus" size={16} color={brand.primary} />
-                <Text style={styles.topUpText}>Top up</Text>
-              </PressableScale>
+              {available !== null && (
+                <Text style={styles.leftPill}>
+                  {available} {available === 1 ? 'report' : 'reports'} left
+                </Text>
+              )}
             </View>
             <View>
-              <Text style={styles.balanceValue}>{available}</Text>
+              <Text style={styles.balanceValue}>{available ?? '–'}</Text>
               <Text style={styles.balanceLabel}>Credits available</Text>
             </View>
             <View>
               <View style={styles.meterLabels}>
-                <Text style={styles.meterText}>{used} used</Text>
-                <Text style={styles.meterText}>{total} total</Text>
+                <Text style={styles.meterText}>{used ?? '–'} used</Text>
+                <Text style={styles.meterText}>{total ?? '–'} total</Text>
               </View>
               <View style={styles.meterTrack}>
                 <View style={[styles.meterFill, { width: `${usedPct}%` }]} />
@@ -88,63 +103,59 @@ export const UsageScreen: React.FC = () => {
         {/* Stat tiles */}
         <Rise delay={200} style={styles.statRow}>
           <View style={[cardStyle, styles.stat]}>
-            <Text style={[styles.statValue, { color: '#0B9F6E' }]}>{used}</Text>
+            <View style={[styles.statIcon, { backgroundColor: '#E3F7EE' }]}>
+              <LineIcon name="check" size={18} color="#0B9F6E" />
+            </View>
+            <Text style={[styles.statValue, { color: '#0B9F6E' }]}>{used ?? '–'}</Text>
             <Text style={styles.statLabel}>Credits used</Text>
           </View>
           <View style={[cardStyle, styles.stat]}>
-            <Text style={[styles.statValue, { color: '#C77A0B' }]}>{CREDITS_PER_SCAN}</Text>
-            <Text style={styles.statLabel}>Credit per report</Text>
+            <View style={[styles.statIcon, { backgroundColor: '#FFF3DB' }]}>
+              <LineIcon name="bolt" size={18} color="#C77A0B" />
+            </View>
+            <Text style={[styles.statValue, { color: '#C77A0B' }]}>1 credit</Text>
+            <Text style={styles.statLabel}>Cost per report</Text>
           </View>
         </Rise>
 
         {/* Call to action */}
         <Rise delay={280} style={[cardStyle, styles.pad18]}>
           <Text style={styles.cardTitle}>Ready to review a manuscript?</Text>
-          <Text style={styles.cardSub}>Scan previews are free. Unlocking a full report uses one credit.</Text>
+          <Text style={styles.cardSub}>
+            Scan previews are free. Unlocking a full report uses one credit.
+            {available ? ` You can unlock up to ${available} ${available === 1 ? 'report' : 'reports'}.` : ''}
+          </Text>
           <View style={styles.ctaRow}>
-            <PressableScale onPress={comingSoon} style={[styles.btn, styles.btnGhost]}>
+            <PressableScale onPress={() => setBuying(true)} style={[styles.btn, styles.btnGhost]}>
               <Text style={styles.btnGhostText}>Buy credits</Text>
-            </PressableScale>
-            <PressableScale onPress={() => tabNav.navigate('Upload')} style={[styles.btn, styles.btnPrimary]}>
-              <Text style={styles.btnPrimaryText}>Start a scan</Text>
             </PressableScale>
           </View>
         </Rise>
 
-        {/* Recent scans */}
-        <Rise delay={360} style={[cardStyle, styles.pad18]}>
-          <View style={styles.recentHead}>
-            <Text style={styles.recentTitle}>Recent scans</Text>
-            <Text style={styles.pill}>{scans.length} so far</Text>
+        {/* Purchase history */}
+        <Rise delay={360} style={[cardStyle, styles.history]}>
+          <View style={styles.historyHead}>
+            <Text style={styles.historyTitle}>Purchase history</Text>
+            <Text style={styles.pill}>
+              {purchases.length} {purchases.length === 1 ? 'purchase' : 'purchases'}
+            </Text>
           </View>
-          {scans.length === 0 ? (
-            <Text style={styles.empty}>No scans yet. Activity appears here after your first scan.</Text>
-          ) : (
-            <View style={styles.recentList}>
-              {scans.slice(0, 3).map((s) => (
-                <Pressable
-                  key={s.id}
-                  onPress={() => rootNav.push('Report', { scanId: s.id, heavy: s.heavy })}
-                  style={({ pressed }) => [styles.recentRow, pressed && { backgroundColor: brand.tint }]}
-                >
-                  <View style={styles.recentIcon}>
-                    <LineIcon name="doc" size={17} color={brand.primary} />
-                  </View>
-                  <View style={styles.flex1}>
-                    <Text style={styles.recentName} numberOfLines={1}>
-                      {s.title}
-                    </Text>
-                    <Text style={styles.recentMeta}>
-                      {s.date} · {s.unlocked === false ? 'Free preview' : `${CREDITS_PER_SCAN} credit`}
-                    </Text>
-                  </View>
-                  <LineIcon name="arrowRight" size={16} color={brand.icon} />
-                </Pressable>
-              ))}
+          {purchases.length === 0 && <Text style={styles.empty}>{history ? 'No purchases yet.' : 'Loading your purchases…'}</Text>}
+          {purchases.map((p, i) => (
+            <View key={`${p.created_at}-${i}`} style={styles.historyRow}>
+              <View style={styles.historyLeft}>
+                <Text style={styles.historyName}>Bought credits</Text>
+                <Text style={styles.historyWhen}>{formatWhen(p.created_at)}</Text>
+              </View>
+              <Text style={styles.historyDelta}>
+                +{p.delta} {p.delta === 1 ? 'credit' : 'credits'} · {p.balance_after} total
+              </Text>
             </View>
-          )}
+          ))}
         </Rise>
       </ScrollView>
+
+      <BuyCreditsSheet visible={buying} userName={session?.userName ?? ''} onClose={() => setBuying(false)} onPurchased={onPurchased} />
     </View>
   );
 };
@@ -159,10 +170,6 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 12,
   },
-  flex1: {
-    flex: 1,
-    minWidth: 0,
-  },
   pad18: {
     padding: 18,
   },
@@ -174,11 +181,18 @@ const styles = StyleSheet.create({
   },
   h1: {
     marginTop: 6,
+    marginBottom: 2,
     fontFamily: fonts.sans[800],
     fontSize: 28,
     lineHeight: 31,
     letterSpacing: -0.56,
     color: brand.ink,
+  },
+  intro: {
+    fontFamily: fonts.sans[400],
+    fontSize: 13,
+    lineHeight: 19.5,
+    color: brand.sub,
   },
   balance: {
     borderRadius: 20,
@@ -198,19 +212,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topUp: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    height: 38,
-    paddingHorizontal: 15,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
-  },
-  topUpText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 13,
-    color: brand.primary,
+  leftPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    fontFamily: fonts.sans[700],
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   balanceValue: {
     fontFamily: fonts.sans[800],
@@ -255,18 +265,26 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  statIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statValue: {
+    marginTop: 10,
     fontFamily: fonts.sans[800],
     fontSize: 26,
   },
   statLabel: {
-    marginTop: 4,
+    marginTop: 2,
     fontFamily: fonts.sans[400],
     fontSize: 12.5,
-    color: brand.muted,
+    color: '#6B6890',
   },
   cardTitle: {
-    fontFamily: fonts.sans[700],
+    fontFamily: fonts.sans[800],
     fontSize: 16,
     color: brand.ink,
   },
@@ -289,19 +307,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnPrimary: {
-    backgroundColor: brand.primary,
-    shadowColor: brand.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  btnPrimaryText: {
-    fontFamily: fonts.sans[800],
-    fontSize: 14.5,
-    color: '#FFFFFF',
-  },
   btnGhost: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -312,20 +317,26 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: brand.ink,
   },
-  recentHead: {
+  history: {
+    paddingTop: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
+  historyHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  recentTitle: {
-    fontFamily: fonts.sans[700],
+  historyTitle: {
+    fontFamily: fonts.sans[800],
     fontSize: 15,
     color: brand.ink,
   },
   pill: {
     height: 26,
     lineHeight: 26,
-    paddingHorizontal: 11,
+    paddingHorizontal: 13,
     borderRadius: 999,
     overflow: 'hidden',
     backgroundColor: brand.tint,
@@ -334,45 +345,39 @@ const styles = StyleSheet.create({
     color: brand.primary,
   },
   empty: {
-    marginTop: 10,
-    marginBottom: 2,
+    paddingTop: 2,
+    paddingBottom: 12,
     fontFamily: fonts.sans[400],
     fontSize: 13,
-    lineHeight: 19.5,
     color: brand.hint,
-    textAlign: 'center',
   },
-  recentList: {
-    marginTop: 12,
-    gap: 8,
-  },
-  recentRow: {
+  historyRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: brand.soft,
-    borderWidth: 1,
-    borderColor: brand.softLine,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 13,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEDF8',
   },
-  recentIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: brand.tint,
-    alignItems: 'center',
-    justifyContent: 'center',
+  historyLeft: {
+    flexShrink: 1,
   },
-  recentName: {
-    fontFamily: fonts.sans[700],
+  historyName: {
+    fontFamily: fonts.sans[600],
     fontSize: 14,
     color: brand.ink,
   },
-  recentMeta: {
+  historyWhen: {
     marginTop: 2,
     fontFamily: fonts.sans[400],
-    fontSize: 12,
-    color: brand.muted,
+    fontSize: 11.5,
+    color: '#7D7B9E',
+  },
+  historyDelta: {
+    marginTop: 2,
+    fontFamily: fonts.sans[700],
+    fontSize: 12.5,
+    color: '#0B9F6E',
   },
 });

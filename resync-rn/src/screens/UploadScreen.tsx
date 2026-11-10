@@ -24,10 +24,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts } from '../theme/colors';
 import { brand, cardStyle } from '../theme/brand';
-import { getSession, saveSession, creditsAvailable, UserSession } from '../services/session';
+import { getSession, saveSession, UserSession } from '../services/session';
+import { useCreditBalance } from '../services/credits';
 import { executeScan, saveNewScan, scanFromBackend } from '../services/scanRepository';
 import { MANUSCRIPT_BLOCKS, ManuscriptBlock, PAPER_SECTIONS, TITLE_PAGE } from '../data/report';
 import { ApiError, ScanProgress, scanFailureFromError } from '../services/api';
+import { GoogleDoc, GoogleDocResult, fetchGoogleDoc } from '../services/googleDocs';
+import { clearActiveScan, startActiveScan, updateActiveScan } from '../services/activeScan';
+import { trackScan } from '../services/notifications';
+import { readWordFile } from '../services/wordDoc';
 import { AppHeader, initialsOf } from '../components/AppHeader';
 import { LineIcon, LineIconName } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
@@ -37,7 +42,7 @@ import { ScanTour, TourRect, TOUR_STEPS } from '../components/scan/ScanTour';
 type Phase = 'template' | 'upload' | 'confirm' | 'analyzing' | 'scan-error';
 type Source = 'file' | 'gdocs';
 type PickedFile = { name: string; sizeMb: number; uri: string; type: string };
-type GdocsStatus = 'idle' | 'checking' | 'ok' | 'invalid' | 'private';
+type GdocsStatus = 'idle' | 'checking' | GoogleDocResult['status'];
 type ScanFailure = { type: 'interrupted' | 'busy'; message: string };
 
 const MAX_MB = 25;
@@ -67,10 +72,16 @@ const pickWordFile = async (): Promise<PickedFile | 'too-big' | null> => {
   }
 };
 
-const checkGdocsLink = (text: string): GdocsStatus => {
-  if (text.includes('Pr1vat3')) return 'private';
-  return text.includes('docs.google.com/document') || text.includes('demo') ? 'ok' : 'invalid';
+// "demo" links skip Google and show the sample manuscript, as the backend accepts them too
+const SAMPLE_DOC: GoogleDoc = {
+  blocks: MANUSCRIPT_BLOCKS,
+  sections: PAPER_SECTIONS,
+  words: PAPER_SECTIONS.reduce((sum, s) => sum + s.words, 0),
 };
+const EMPTY_DOC: GoogleDoc = { blocks: [], sections: [], words: 0 };
+
+const checkGdocsLink = (text: string): Promise<GoogleDocResult> =>
+  text.includes('demo') ? Promise.resolve({ status: 'ok', doc: SAMPLE_DOC }) : fetchGoogleDoc(text);
 
 const formatMb = (mb: number) => `${(mb > 0 ? mb : 0.1).toFixed(1)} MB`;
 
@@ -141,14 +152,22 @@ export const UploadScreen: React.FC = () => {
   const scrollRef = useRef<ScrollView>(null);
 
   const [session, setSession] = useState<UserSession | null>(null);
+  const [credits] = useCreditBalance();
   const [phase, setPhase] = useState<Phase>('template');
   const [template, setTemplate] = useState<PickedFile | null>(null);
   const [source, setSource] = useState<Source>('file');
   const [file, setFile] = useState<PickedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [fileDoc, setFileDoc] = useState<GoogleDoc | null>(null);
+  const [fileReading, setFileReading] = useState(false);
+  // Bumped on every pick so a slow read of an old file can't overwrite a newer one
+  const fileRead = useRef(0);
   const [gdocsUrl, setGdocsUrl] = useState('');
   const [gdocsStatus, setGdocsStatus] = useState<GdocsStatus>('idle');
+  const [gdocsDoc, setGdocsDoc] = useState<GoogleDoc | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped on every edit so a slow fetch for an old link can't overwrite a newer one
+  const linkCheck = useRef(0);
   const [linkDraft, setLinkDraft] = useState('');
   const [linkDraftStatus, setLinkDraftStatus] = useState<GdocsStatus>('idle');
   const [scanProgress, setScanProgress] = useState<ScanProgress>({ state: 'processing', message: 'Analyzing your manuscript' });
@@ -195,8 +214,13 @@ export const UploadScreen: React.FC = () => {
     setSource('file');
     setFile(null);
     setFileError(null);
+    setFileDoc(null);
+    setFileReading(false);
+    fileRead.current++;
     setGdocsUrl('');
     setGdocsStatus('idle');
+    setGdocsDoc(null);
+    linkCheck.current++;
     setScanFailure(null);
   };
 
@@ -259,18 +283,32 @@ export const UploadScreen: React.FC = () => {
     else if (res) {
       setFileError(null);
       setFile(res);
+      setFileDoc(null);
+      setFileReading(true);
+      const read = ++fileRead.current;
+      const parsed = await readWordFile(res);
+      if (read !== fileRead.current) return;
+      setFileDoc(parsed);
+      setFileReading(false);
     }
   };
 
   const onGdocsChange = (text: string) => {
     setGdocsUrl(text);
     if (debounce.current) clearTimeout(debounce.current);
+    const check = ++linkCheck.current;
+    setGdocsDoc(null);
     if (!text.trim()) {
       setGdocsStatus('idle');
       return;
     }
     setGdocsStatus('checking');
-    debounce.current = setTimeout(() => setGdocsStatus(checkGdocsLink(text)), 900);
+    debounce.current = setTimeout(async () => {
+      const result = await checkGdocsLink(text);
+      if (check !== linkCheck.current) return;
+      setGdocsStatus(result.status);
+      if (result.status === 'ok') setGdocsDoc(result.doc);
+    }, 900);
   };
 
   const uploadValid = source === 'file' ? !!file : gdocsStatus === 'ok';
@@ -280,8 +318,10 @@ export const UploadScreen: React.FC = () => {
   const doc = touringConfirm
     ? { ...DEMO_DOC, source: 'file' as Source }
     : source === 'file'
-      ? { name: file?.name ?? '', meta: `Word file · ${formatMb(file?.sizeMb ?? 0)} · ~${WORD_COUNT} words`, source }
-      : { name: 'Google Docs manuscript', meta: `Google Doc · ~${WORD_COUNT} words`, source };
+      ? { name: file?.name ?? '', meta: `Word file · ${formatMb(file?.sizeMb ?? 0)}${fileDoc ? ` · ~${fileDoc.words.toLocaleString('en-US')} words` : ''}`, source }
+      : { name: 'Google Docs manuscript', meta: `Google Doc · ~${(gdocsDoc?.words ?? 0).toLocaleString('en-US')} words`, source };
+  // Only the tour and "demo" links show the sample manuscript; a file that can't be read shows a note instead
+  const preview = touringConfirm ? SAMPLE_DOC : doc.source === 'gdocs' ? gdocsDoc ?? SAMPLE_DOC : fileDoc ?? EMPTY_DOC;
 
   const linkDirty = !!linkDraft.trim() && linkDraft.trim() !== gdocsUrl.trim();
 
@@ -291,11 +331,16 @@ export const UploadScreen: React.FC = () => {
     setLinkDraftStatus('idle');
   }, [phase, gdocsUrl]);
 
-  const updateLink = () => {
+  const updateLink = async () => {
     const next = linkDraft.trim();
-    const status = checkGdocsLink(next);
-    if (status === 'ok') setGdocsUrl(next);
-    else setLinkDraftStatus(status);
+    const check = ++linkCheck.current;
+    setLinkDraftStatus('checking');
+    const result = await checkGdocsLink(next);
+    if (check !== linkCheck.current) return;
+    if (result.status === 'ok') {
+      setGdocsDoc(result.doc);
+      setGdocsUrl(next);
+    } else setLinkDraftStatus(result.status);
   };
 
   const continueInBackground = () => {
@@ -330,14 +375,23 @@ export const UploadScreen: React.FC = () => {
             ? apiError.message
             : apiError?.message || 'Unable to complete the scan. Please try again.';
       if (failure) {
-        setScanFailure({ type: failure, message: failure === 'busy' ? 'Other scans are running. Try again in a minute.' : message });
+        const failureMessage = failure === 'busy' ? 'Other scans are running. Try again in a minute.' : message;
+        setScanFailure({ type: failure, message: failureMessage });
         goTo('scan-error');
+        // The error screen sits on the Scan tab, out of sight of a scan sent to the background
+        if (backgrounded.current) {
+          Alert.alert(failure === 'interrupted' ? 'Scan interrupted' : 'Scan service busy', failureMessage, [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Open scan', onPress: () => tabNav.navigate('Upload') },
+          ]);
+        }
         return;
       }
       goTo('confirm');
       Alert.alert('Scan not completed', message);
     } finally {
       runningScan.current = null;
+      clearActiveScan();
     }
   }, [source, file, tabNav, rootNav]);
 
@@ -348,10 +402,16 @@ export const UploadScreen: React.FC = () => {
   const beginScan = () => {
     const title = source === 'file' ? file?.name : 'Google Docs manuscript';
     setScanFailure(null);
-    setScanProgress({ state: 'processing', message: 'Analyzing your manuscript' });
-    runningScan.current = executeScan(source === 'file'
+    const initial: ScanProgress = { state: 'processing', message: 'Analyzing your manuscript' };
+    setScanProgress(initial);
+    startActiveScan(title || 'Manuscript', initial);
+    const onStatus = (progress: ScanProgress) => {
+      setScanProgress(progress);
+      updateActiveScan(progress);
+    };
+    runningScan.current = trackScan(title || 'Manuscript', () => executeScan(source === 'file'
       ? { file: file ? { uri: file.uri, name: file.name, type: file.type } : undefined, manuscript_title: title }
-      : { document_url: gdocsUrl, manuscript_title: title }, { onStatus: setScanProgress });
+      : { document_url: gdocsUrl, manuscript_title: title }, { onStatus }));
     goTo('analyzing');
   };
 
@@ -580,14 +640,23 @@ export const UploadScreen: React.FC = () => {
             </Text>
             <View ref={targets.confirmDoc} collapsable={false} style={styles.viewer}>
               <ScrollView nestedScrollEnabled persistentScrollbar contentContainerStyle={styles.viewerPage}>
-                <Text style={styles.pageTitle}>{TITLE_PAGE.title}</Text>
-                {TITLE_PAGE.lines.map((line) => (
-                  <Text key={line} style={styles.pageCentered}>
-                    {line}
+                {preview === SAMPLE_DOC && (
+                  <>
+                    <Text style={styles.pageTitle}>{TITLE_PAGE.title}</Text>
+                    {TITLE_PAGE.lines.map((line) => (
+                      <Text key={line} style={styles.pageCentered}>
+                        {line}
+                      </Text>
+                    ))}
+                  </>
+                )}
+                {preview === EMPTY_DOC && (
+                  <Text style={styles.pageCentered}>
+                    {fileReading ? 'Reading your document…' : 'This file can’t be previewed here, but Resync can still scan it.'}
                   </Text>
-                ))}
+                )}
                 <View style={styles.pageBody}>
-                  {MANUSCRIPT_BLOCKS.map((b, i) => (
+                  {preview.blocks.map((b, i) => (
                     <Text key={i} style={PAGE_TEXT[b.kind]}>
                       {b.text}
                     </Text>
@@ -614,6 +683,7 @@ export const UploadScreen: React.FC = () => {
                     onChangeText={(text) => {
                       setLinkDraft(text);
                       setLinkDraftStatus('idle');
+                      linkCheck.current++;
                     }}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -631,11 +701,14 @@ export const UploadScreen: React.FC = () => {
             <View style={[cardStyle, styles.cardPad]}>
               <View style={styles.summaryHead}>
                 <Text style={styles.eyebrowSmall}>PAPER STRUCTURE</Text>
-                <Text style={styles.sectionsPill}>{PAPER_SECTIONS.length} sections</Text>
+                <Text style={styles.sectionsPill}>{preview.sections.length} sections</Text>
               </View>
+              {!preview.sections.length && (
+                <Text style={styles.hint}>No headings found. Resync will try to detect sections when it scans.</Text>
+              )}
               <ScrollView nestedScrollEnabled persistentScrollbar style={styles.sectionList}>
-                {PAPER_SECTIONS.map((s, i) => (
-                  <View key={s.title} style={styles.sectionRow}>
+                {preview.sections.map((s, i) => (
+                  <View key={`${i}-${s.title}`} style={styles.sectionRow}>
                     <View style={styles.sectionNum}>
                       <Text style={styles.sectionNumText}>{i + 1}</Text>
                     </View>
@@ -654,7 +727,7 @@ export const UploadScreen: React.FC = () => {
                 <SummaryRow label="Chapter template" value={template ? 'From template' : 'Auto-detect'} valueColor={brand.primary} />
                 <SummaryRow label="Scan preview" value="Free" valueColor="#0B9F6E" />
                 <SummaryRow label="Full report unlock" value="1 credit" />
-                <SummaryRow label="Your credits" value={session ? String(creditsAvailable(session)) : '–'} />
+                <SummaryRow label="Your credits" value={credits === null ? '–' : String(credits)} />
               </View>
             </View>
           </StepFade>
@@ -715,6 +788,8 @@ const GdocsHint: React.FC<{ status: GdocsStatus }> = ({ status }) => {
     ok: { text: 'Link opens correctly', color: '#1F7A4A' },
     invalid: { text: 'That doesn’t look like a Google Docs link.', color: brand.danger },
     private: { text: 'This document is private. Set sharing to “Anyone with the link can view”.', color: brand.danger },
+    missing: { text: 'We couldn’t find a document at that link.', color: brand.danger },
+    unreachable: { text: 'Couldn’t reach Google Docs. Check your connection and try again.', color: brand.danger },
   } as const;
   return <Text style={[styles.hint, { color: map[status].color }]}>{map[status].text}</Text>;
 };

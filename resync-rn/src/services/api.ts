@@ -239,6 +239,42 @@ export async function unlockScanApi(analysisRunId: string): Promise<{ result: Ba
   }
 }
 
+export interface CreditLedgerEntry { delta: number; balance_after: number; kind: string; created_at: string; }
+
+export type PaymentMethod = 'card' | 'gcash' | 'bank_transfer';
+
+export interface PurchaseProof {
+  reference_number: string;
+  payer_name?: string;
+  file_name: string;
+  content_type: string;
+  proof_data: string; // base64
+}
+
+async function creditsRequest<T>(request: AxiosRequestConfig) {
+  try {
+    const userId = await sessionUserId();
+    const response = await authenticatedRequest<T>({ ...request, headers: { ...request.headers, 'X-User-Id': userId } });
+    return response.data;
+  } catch (error) {
+    throw asApiError(error);
+  }
+}
+
+export const getCreditBalanceApi = async (): Promise<number> =>
+  (await creditsRequest<{ balance: number }>({ method: 'GET', url: 'api/credits/balance' })).balance;
+
+export const getCreditHistoryApi = async (): Promise<CreditLedgerEntry[]> =>
+  (await creditsRequest<{ entries: CreditLedgerEntry[] }>({ method: 'GET', url: 'api/credits/history', params: { limit: 200 } })).entries;
+
+/** Adds credits to the wallet. The backend sets the price and takes no real payment yet. */
+export const purchaseCreditsApi = (creditAmount: number, method: PaymentMethod, proof: PurchaseProof | null) =>
+  creditsRequest<{ amount: number; credit_amount: number; balance: number }>({
+    method: 'POST',
+    url: 'api/credits/purchase',
+    data: { credit_amount: creditAmount, method, proof },
+  });
+
 export async function loginApi(req: AuthLoginRequest): Promise<AuthResponse> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email: req.email.trim().toLowerCase(),

@@ -1,3 +1,5 @@
+import type { BackendScanResult, CheckCount } from './scans';
+
 export interface Finding {
   id: string;
   kind: 'Issue' | 'Strength';
@@ -65,6 +67,10 @@ export interface ScoreCategory {
   desc: string;
   correct?: number; // correct and total are unset when the category doesn't apply to this paper
   total?: number;
+  percent?: number; // the backend's own score, which weighs the checks instead of just counting them
+  flow?: CheckCount;
+  cross?: CheckCount;
+  groups?: string[]; // names of the flow and cross checks
   naCaption?: string;
   naNote?: string;
 }
@@ -83,8 +89,72 @@ export const SCORE_CATEGORIES: ScoreCategory[] = [
   },
 ];
 
+export interface CheckGroup {
+  label: string;
+  count: CheckCount;
+  percent?: number; // 0 to 100, known when the backend sent points or the category score pins it down
+}
+
+/** Splits a category into its checks. A check's share is exact when it has points or full marks; the other is what the category score leaves over. */
+export const categoryGroups = (c: ScoreCategory): CheckGroup[] => {
+  const overall = c.total === undefined ? undefined : { passed: c.correct ?? 0, items: c.total };
+  const [flowLabel = 'Flow between neighboring sections', crossLabel = 'Chapters that should agree'] = c.groups ?? [];
+  const known = (n: CheckCount) => (n.points !== undefined ? (n.points / n.items) * 100 : n.passed === n.items ? 100 : undefined);
+  const groups: CheckGroup[] = [
+    { label: flowLabel, count: c.flow ?? overall },
+    { label: crossLabel, count: c.cross ?? overall },
+  ]
+    .filter((r): r is { label: string; count: CheckCount } => !!r.count && r.count.items > 0)
+    .map((r) => ({ ...r, percent: known(r.count) }));
+  const total = c.percent;
+  if (total === undefined) return groups;
+  if (groups.length === 1) groups[0].percent = total;
+  else if (groups.length === 2 && c.flow && c.cross) {
+    const [a, b] = groups;
+    const rest = (other: number) => Math.min(100, Math.max(0, 2 * total - other));
+    if (a.percent !== undefined && b.percent === undefined) b.percent = rest(a.percent);
+    else if (b.percent !== undefined && a.percent === undefined) a.percent = rest(b.percent);
+  }
+  return groups;
+};
+
 export const categoryPercent = (c: ScoreCategory) =>
-  c.correct === undefined || !c.total ? null : (c.correct / c.total) * 100;
+  c.percent ?? (c.correct === undefined || !c.total ? null : (c.correct / c.total) * 100);
+
+const LIVE_CATEGORIES: Record<string, Pick<ScoreCategory, 'name' | 'color' | 'desc' | 'groups'>> = {
+  context_alignment: { name: 'Context Alignment', color: '#F5A524', desc: 'How well the text stays aligned with the purpose and context the paper sets up.', groups: ['Transitions', 'Cross-Sections'] },
+  operational_alignment: { name: 'Operational Alignment', color: '#10B981', desc: 'How well how the work was done matches the rest of the paper.', groups: ['Method flow', 'Method match'] },
+  logical_support: { name: 'Logical Support', color: '#F43F5E', desc: 'How well statements are backed up by the surrounding text.', groups: ['Reasoning flow', 'Claim backing'] },
+  evidence_consistency: { name: 'Evidence Consistency', color: '#6D4DF6', desc: 'How well numbers and data agree across the paper.', groups: ['Number carry-over'] },
+  // Older scans only report these four 0 to 1 averages
+  objectives_alignment: { name: 'Objectives Alignment', color: '#F5A524', desc: 'How well the research objectives align across sections.' },
+  methodology_fit: { name: 'Methodology Fit', color: '#10B981', desc: 'How well the methods support the stated objectives.' },
+  claim_support: { name: 'Claim Support', color: '#F43F5E', desc: 'How well claims are supported by the manuscript.' },
+  numeric_consistency: { name: 'Numeric Consistency', color: '#C4C2DA', desc: 'How consistently numeric claims agree.' },
+};
+
+const liveCategoryMeta = (id: string) => ({
+  id,
+  ...(LIVE_CATEGORIES[id] ?? { name: id.replace(/_/g, ' '), color: '#2B25C8', desc: 'Backend score dimension.' }),
+});
+
+/** Turns a scan's score breakdown into report cards, preferring the per-check counts when the scan has them. */
+export const liveScoreCategories = (breakdown: BackendScanResult['score_breakdown']): ScoreCategory[] => {
+  const detailed = breakdown?.dimension_breakdown;
+  if (detailed && Object.keys(detailed).length) {
+    const known = Object.keys(LIVE_CATEGORIES);
+    return Object.entries(detailed)
+      .sort(([a], [b]) => known.indexOf(a) - known.indexOf(b))
+      .map(([id, d]) =>
+        typeof d.score === 'number' && d.items
+          ? { ...liveCategoryMeta(id), percent: d.score, correct: d.passed, total: d.items, flow: d.flow, cross: d.cross }
+          : { ...liveCategoryMeta(id), naCaption: 'Not enough to compare', naNote: 'This paper has nothing for this check to compare.' },
+      );
+  }
+  return Object.entries(breakdown?.dimensions ?? {})
+    .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+    .map(([id, score]) => ({ ...liveCategoryMeta(id), percent: score * 100 }));
+};
 
 /** Average of the categories that apply, rounded up. */
 export const overallScore = (categories: ScoreCategory[]) => {

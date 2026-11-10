@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Animated, Easing, Image, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import * as SvgModule from 'react-native-svg';
@@ -8,12 +8,12 @@ import { brand } from '../../theme/brand';
 import { LineIcon } from '../LineIcon';
 import { PressableScale } from '../PressableScale';
 import { Rise } from '../Rise';
-import type { ScanProgress } from '../../services/api';
+import { LONG_PROCESSING_THRESHOLD_MS, ScanProgress } from '../../services/api';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const { Defs, Pattern, Circle, Rect, RadialGradient, Stop, Mask } = SvgModule;
 
-const CHECKS = [
+export const CHECKS = [
   { title: 'Reading your manuscript', sub: 'Extracting chapters and sections', status: 'Reading your manuscript…' },
   { title: 'Checking section links', sub: 'Finding weak links or conflicts', status: 'Checking section links…' },
   { title: 'Verifying citation access', sub: 'Checking that references are reachable', status: 'Verifying citations…' },
@@ -23,6 +23,14 @@ const CHECKS = [
     status: 'Generating AI Recommendations…',
   },
 ];
+
+// The backend doesn't report progress, so the bar is paced to reach 99% when a scan counts as
+// "taking longer than usual", then waits there on the last check until the result arrives.
+export const FILL_MS = LONG_PROCESSING_THRESHOLD_MS;
+export const MAX_PCT = 99;
+export const QUARTER = 100 / CHECKS.length;
+// A check shows its green tick for the last slice of its quarter before the next one slides in
+const DONE_AT = QUARTER - 4;
 
 const useLoop = (duration: number, { delay = 0, easing = Easing.linear } = {}) => {
   const v = useRef(new Animated.Value(0)).current;
@@ -94,9 +102,37 @@ export const AnalyzingView: React.FC<{ progress: ScanProgress; onBackground: () 
   const pulseA = useLoop(2800, { easing: Easing.out(Easing.ease) });
   const pulseB = useLoop(2800, { delay: 1400, easing: Easing.out(Easing.ease) });
   const orbit = useLoop(38000);
+  const shine = useLoop(1800, { easing: Easing.inOut(Easing.ease) });
+  const progress = useRef(new Animated.Value(0)).current;
+  const [pct, setPct] = useState(0);
+  const [prevPhase, setPrevPhase] = useState<number | null>(null);
 
-  const phase = 0;
-  const done = false;
+  // Start filling once the scan leaves the queue
+  const running = scanProgress.state !== 'queued';
+  useEffect(() => {
+    if (!running) return;
+    const id = progress.addListener(({ value }) => setPct(Math.floor(value)));
+    Animated.timing(progress, { toValue: MAX_PCT, duration: FILL_MS, easing: Easing.linear, useNativeDriver: false }).start();
+    return () => {
+      progress.removeListener(id);
+      progress.stopAnimation();
+    };
+  }, [running, progress]);
+
+  const phase = Math.min(CHECKS.length - 1, Math.floor(pct / QUARTER));
+  // The last check only completes when the report does, which takes this screen away
+  const done = phase < CHECKS.length - 1 && pct - phase * QUARTER >= DONE_AT;
+
+  // Keep the previous row on screen briefly so it can slide out
+  const lastPhase = useRef(phase);
+  useEffect(() => {
+    if (phase !== lastPhase.current) {
+      setPrevPhase(lastPhase.current);
+      lastPhase.current = phase;
+      const t = setTimeout(() => setPrevPhase(null), 340);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
 
   const pulseStyle = (v: Animated.Value) => ({
     opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
@@ -151,7 +187,9 @@ export const AnalyzingView: React.FC<{ progress: ScanProgress; onBackground: () 
 
         <Rise delay={250} style={styles.center}>
           <Text style={styles.title}>{scanProgress.state === 'queued' ? 'Waiting in line' : 'Analyzing your manuscript'}</Text>
-          <Text style={styles.sub}>{scanProgress.message}</Text>
+          <Text style={styles.sub}>
+            {scanProgress.state === 'processing' ? `Running ${CHECKS.length} checks as a holistic manuscript analysis` : scanProgress.message}
+          </Text>
         </Rise>
 
         <Rise delay={400} style={styles.card}>
@@ -164,8 +202,32 @@ export const AnalyzingView: React.FC<{ progress: ScanProgress; onBackground: () 
                   <View style={styles.statusDot} />
                   <Text style={styles.statusText}>{CHECKS[phase].status}</Text>
                 </View>
+                <Text style={styles.pct}>{pct}%</Text>
               </View>
+
+              <View style={styles.track}>
+                <Animated.View
+                  style={[styles.fill, { width: progress.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
+                >
+                  <LinearGradient colors={['#4A44E0', brand.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                  <Animated.View
+                    style={[
+                      styles.shine,
+                      { transform: [{ translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-120, 340] }) }] },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+                </Animated.View>
+              </View>
+
               <View style={styles.rowSlot}>
+                {prevPhase !== null && <CheckRow key={`out-${prevPhase}`} index={prevPhase} done leaving />}
                 <CheckRow key={phase} index={phase} done={done} leaving={false} />
               </View>
             </>
@@ -300,6 +362,31 @@ const styles = StyleSheet.create({
     fontFamily: fonts.mono[500],
     fontSize: 12,
     color: brand.primary,
+  },
+  pct: {
+    fontFamily: fonts.mono[700],
+    fontSize: 13,
+    color: brand.primary,
+  },
+  track: {
+    marginTop: 14,
+    marginBottom: 22,
+    marginHorizontal: 4,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: brand.softLine,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  shine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 120,
   },
   queueText: {
     fontFamily: fonts.sans[600],
