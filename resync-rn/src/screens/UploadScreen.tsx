@@ -26,7 +26,7 @@ import { fonts } from '../theme/colors';
 import { brand, cardStyle } from '../theme/brand';
 import { getSession, saveSession, UserSession } from '../services/session';
 import { useCreditBalance } from '../services/credits';
-import { executeScan, saveNewScan, scanFromBackend } from '../services/scanRepository';
+import { clearPendingScan, executeScan, getPendingScan, resumeScan, saveNewScan, scanFromBackend } from '../services/scanRepository';
 import { MANUSCRIPT_BLOCKS, ManuscriptBlock, PAPER_SECTIONS, TITLE_PAGE } from '../data/report';
 import { ApiError, ScanProgress, scanFailureFromError } from '../services/api';
 import { GoogleDoc, GoogleDocResult, fetchGoogleDoc } from '../services/googleDocs';
@@ -392,12 +392,35 @@ export const UploadScreen: React.FC = () => {
     } finally {
       runningScan.current = null;
       clearActiveScan();
+      void clearPendingScan();
     }
   }, [source, file, tabNav, rootNav]);
 
   useEffect(() => {
     if (phase === 'analyzing' && runningScan.current) void finishScan();
   }, [phase, finishScan]);
+
+  // A scan the app lost track of (closed or restarted mid-scan) may have finished on the server
+  useEffect(() => {
+    let cancelled = false;
+    void getPendingScan().then((pending) => {
+      if (cancelled || !pending || runningScan.current) return;
+      const initial: ScanProgress = { state: 'processing', message: 'Analyzing your manuscript' };
+      setSource(pending.isGoogleDoc ? 'gdocs' : 'file');
+      setScanProgress(initial);
+      startActiveScan(pending.title, initial);
+      const onStatus = (progress: ScanProgress) => {
+        setScanProgress(progress);
+        updateActiveScan(progress);
+      };
+      runningScan.current = trackScan(pending.title, () => resumeScan(pending.id, { onStatus }));
+      goTo('analyzing');
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const beginScan = () => {
     const title = source === 'file' ? file?.name : 'Google Docs manuscript';
@@ -411,7 +434,7 @@ export const UploadScreen: React.FC = () => {
     };
     runningScan.current = trackScan(title || 'Manuscript', () => executeScan(source === 'file'
       ? { file: file ? { uri: file.uri, name: file.name, type: file.type } : undefined, manuscript_title: title }
-      : { document_url: gdocsUrl, manuscript_title: title }, { onStatus }));
+      : { document_url: gdocsUrl, manuscript_title: title }, { onStatus }, { title: title || 'Manuscript', isGoogleDoc: source === 'gdocs' }));
     goTo('analyzing');
   };
 

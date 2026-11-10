@@ -114,6 +114,19 @@ describe('scan polling', () => {
     expect(scanFailureFromError(error)).toBe('interrupted');
   });
 
+  it('stops following a scan whose status checks keep failing', async () => {
+    const request = jest.spyOn(apiClient, 'request').mockRejectedValue(new ApiError(500, 'boom'));
+
+    await expect(pollScan('scan-1', { intervalMs: 0 })).rejects.toThrow('We could not check on your scan');
+    expect(request).toHaveBeenCalledTimes(6);
+  });
+
+  it('stops right away when the session has expired', async () => {
+    jest.spyOn(apiClient, 'request').mockRejectedValue(new ApiError(401, 'no'));
+
+    await expect(pollScan('scan-1', { intervalMs: 0 })).rejects.toThrow('session expired');
+  });
+
   it('maps a 503 response to the busy state', () => {
     expect(scanFailureFromError(new ApiError(503, 'busy'))).toBe('busy');
   });

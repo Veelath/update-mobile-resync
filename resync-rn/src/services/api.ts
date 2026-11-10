@@ -69,6 +69,8 @@ interface UnlockResponse { unlocked: true; charged: boolean; credits_remaining: 
 
 const POLL_INTERVAL_MS = 5000;
 export const POLL_SAFETY_TIMEOUT_MS = 60 * 60 * 1000;
+// Status checks that fail this many times in a row mean the scan can't be followed, so stop instead of spinning for an hour
+const MAX_POLL_FAILURES = 6;
 export const LONG_PROCESSING_THRESHOLD_MS = 2 * 60 * 1000;
 
 export type ScanProgress = {
@@ -167,6 +169,7 @@ export async function pollScan(
   const startedAt = Date.now();
   const deadline = startedAt + (options.timeoutMs ?? POLL_SAFETY_TIMEOUT_MS);
   const intervalMs = options.intervalMs ?? POLL_INTERVAL_MS;
+  let failures = 0;
   while (Date.now() <= deadline) {
     if (intervalMs) await pause(intervalMs);
     try {
@@ -179,11 +182,15 @@ export async function pollScan(
           response.data.failure_kind === 'interrupted' ? 'interrupted' : undefined,
         );
       }
+      failures = 0;
       options.onStatus?.(scanProgressFromStatus(response.data, Date.now() - startedAt));
     } catch (error) {
       const apiError = asApiError(error);
       if (apiError.status === 402 || apiError.status === 422 || apiError.status === 503) throw apiError;
       if (error instanceof ApiError && error.status === undefined) throw error;
+      if (apiError.status === 401 || apiError.status === 403) throw new ApiError(apiError.status, 'Your session expired. Please sign in again.');
+      if (apiError.status === 404) throw new ApiError(404, 'We could not find this scan. Please start it again.');
+      if (++failures >= MAX_POLL_FAILURES) throw new ApiError(apiError.status, 'We could not check on your scan. Check your connection and try again.');
     }
   }
   throw new ApiError(undefined, 'We could not confirm the scan status after an hour. Please try again.');
@@ -191,7 +198,7 @@ export async function pollScan(
 
 export async function startScanApi(
   req: ScanRunRequest,
-  options?: { intervalMs?: number; timeoutMs?: number; onStatus?: (progress: ScanProgress) => void },
+  options?: { intervalMs?: number; timeoutMs?: number; onStatus?: (progress: ScanProgress) => void; onStarted?: (analysisRunId: string) => void },
 ): Promise<BackendScanResult> {
   try {
     const userId = await sessionUserId();
@@ -212,6 +219,7 @@ export async function startScanApi(
       });
     }
     if (!response.data.analysis_run_id) throw new ApiError(undefined, 'Backend accepted the scan but returned no analysis_run_id.');
+    options?.onStarted?.(response.data.analysis_run_id);
     options?.onStatus?.(scanProgressFromStatus(response.data));
     return pollScan(response.data.analysis_run_id, options);
   } catch (error) {
