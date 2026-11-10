@@ -128,30 +128,37 @@ async function finish(item: Omit<AppNotification, 'id' | 'at' | 'read'>, notify:
 export async function trackScan<T extends { analysis_run_id?: string }>(documentTitle: string, run: () => Promise<T>): Promise<T> {
   settled = false;
   const notify = (await getSession()).pushNotifications;
-  try {
-    if (notify) await notifee.requestPermission();
-    await createChannels();
-    await notifee.displayNotification({
-      id: RUNNING_ID,
-      title: 'Analyzing your manuscript',
-      body: documentTitle,
-      android: {
-        channelId: PROGRESS_CHANNEL,
-        asForegroundService: true,
-        ongoing: true,
-        progress: { indeterminate: true },
-        foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC],
-        pressAction: { id: 'default' },
-      },
-    });
-  } catch {
-    // Denied permission or a blocked service must not stop the scan itself
-  }
+  // The scan must never wait on notifications: a stuck permission prompt or service start would hang it
+  const setup = (async () => {
+    try {
+      if (notify) await notifee.requestPermission();
+      await createChannels();
+      await notifee.displayNotification({
+        id: RUNNING_ID,
+        title: 'Analyzing your manuscript',
+        body: documentTitle,
+        android: {
+          channelId: PROGRESS_CHANNEL,
+          asForegroundService: true,
+          ongoing: true,
+          progress: { indeterminate: true },
+          foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC],
+          pressAction: { id: 'default' },
+        },
+      });
+    } catch {
+      // Denied permission or a blocked service must not stop the scan itself
+    }
+  })();
+  // Let the progress notification settle before the outcome one replaces it, but don't wait on it for long
+  const setupSettled = () => Promise.race([setup, new Promise<void>((resolve) => setTimeout(resolve, 3000))]);
   try {
     const result = await run();
+    await setupSettled();
     await finish({ kind: 'success', title: 'Scan complete', message: 'Your coherence report is ready to review.', documentTitle, scanId: result.analysis_run_id }, notify);
     return result;
   } catch (error) {
+    await setupSettled();
     await finish({ kind: 'error', title: 'Scan did not finish', message: error instanceof Error ? error.message : String(error), documentTitle }, notify);
     throw error;
   }

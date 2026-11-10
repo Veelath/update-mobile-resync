@@ -95,11 +95,11 @@ export interface CheckGroup {
   percent?: number; // 0 to 100, known when the backend sent points or the category score pins it down
 }
 
-/** Splits a category into its checks. A check's share is exact when it has points or full marks; the other is what the category score leaves over. */
+/** Splits a category into its checks. A check's share is exact when it has credit or full marks; the other is what the category score leaves over. */
 export const categoryGroups = (c: ScoreCategory): CheckGroup[] => {
   const overall = c.total === undefined ? undefined : { passed: c.correct ?? 0, items: c.total };
   const [flowLabel = 'Flow between neighboring sections', crossLabel = 'Chapters that should agree'] = c.groups ?? [];
-  const known = (n: CheckCount) => (n.points !== undefined ? (n.points / n.items) * 100 : n.passed === n.items ? 100 : undefined);
+  const known = (n: CheckCount) => (n.credit !== undefined ? (n.credit / n.items) * 100 : n.passed === n.items ? 100 : undefined);
   const groups: CheckGroup[] = [
     { label: flowLabel, count: c.flow ?? overall },
     { label: crossLabel, count: c.cross ?? overall },
@@ -160,6 +160,24 @@ export const liveScoreCategories = (breakdown: BackendScanResult['score_breakdow
 export const overallScore = (categories: ScoreCategory[]) => {
   const scores = categories.map(categoryPercent).filter((s): s is number => s !== null);
   return Math.ceil(scores.reduce((a, b) => a + b, 0) / scores.length);
+};
+
+const titleCase = (name: string) => name.replace(/\b([a-z])/g, (_, c: string) => c.toUpperCase());
+
+/**
+ * Sorts the pairs of sections the scan compared the way the website does: a pair is an issue when the scan
+ * flagged it or recommends something for it, and all clear when it has no problem and no recommendation.
+ */
+export const liveFlowSummary = (result?: BackendScanResult) => {
+  const withRecommendation = new Set((result?.recommendations ?? []).map((r) => r.pair_order));
+  const pairs = result?.manuscript_flow ?? [];
+  const issues = pairs.filter((p) =>
+    p.severity !== undefined ? p.severity !== null && (p.severity !== 'None' || withRecommendation.has(p.order)) : withRecommendation.has(p.order),
+  );
+  const allClear = pairs
+    .filter((p) => p.scores?.overall_coherence != null && p.severity === 'None' && !withRecommendation.has(p.order))
+    .map((p) => ({ from: titleCase(p.section_a), to: titleCase(p.section_b) }));
+  return { issues: issues.length, allClear };
 };
 
 export interface ReportRecommendation {

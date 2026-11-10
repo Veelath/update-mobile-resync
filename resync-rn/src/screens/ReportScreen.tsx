@@ -28,6 +28,7 @@ import {
   categoryGroups,
   categoryPercent,
   CheckGroup,
+  liveFlowSummary,
   liveScoreCategories,
   Citation,
   CITATIONS,
@@ -469,6 +470,8 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 
   const isLiveScan = !!scan?.result;
+  const flow = liveFlowSummary(scan?.result);
+  const allClear = isLiveScan ? flow.allClear : ALL_CLEAR_LINKS;
   const locked = isLiveScan ? scan?.result?.access?.unlocked === false : scan?.unlocked === false;
   const lockedCounts = scan?.result?.access?.locked_counts;
   const lockedCount = isLiveScan ? lockedCounts?.recommendations || 0 : RECOMMENDATIONS.length - FREE_RECOMMENDATIONS;
@@ -615,8 +618,8 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.tabs}>
               {(
                 [
-                  { key: 'recs', label: 'Recommendations', count: recs.length + (isLiveScan ? lockedCounts?.recommendations || 0 : 0) },
-                  { key: 'clear', label: 'All clear', count: isLiveScan ? 0 : ALL_CLEAR_LINKS.length },
+                  { key: 'recs', label: 'Recommendations', count: isLiveScan ? flow.issues : recs.length },
+                  { key: 'clear', label: 'All clear', count: allClear.length },
                   { key: 'citations', label: 'Citations', count: allCitations.length + (isLiveScan ? lockedCounts?.citations || 0 : 0) },
                 ] as const
               ).map((o) => (
@@ -638,7 +641,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {tab === 'clear' && (
               <View style={styles.panel}>
-                {!isLiveScan && ALL_CLEAR_LINKS.map((l) => (
+                {allClear.map((l) => (
                   <View key={`${l.from}-${l.to}`} style={styles.clearRow}>
                     <Text style={styles.clearTitle}>
                       {l.from} <Text style={styles.clearArrow}>↔</Text> {l.to}

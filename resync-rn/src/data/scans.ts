@@ -16,7 +16,7 @@ export interface ScanItem {
 export interface CheckCount {
   items: number;
   passed: number;
-  points?: number; // full points plus part points; unset when the backend doesn't send them
+  credit?: number; // points earned (full plus part); older scans don't send it
 }
 
 export interface DimensionBreakdown extends Partial<CheckCount> {
@@ -50,11 +50,13 @@ export interface BackendScanResult {
     section?: string;
     section_a: string;
     section_b: string;
+    pair_order?: number;
     original_sentence?: string | null;
     issue?: string;
     recommended_revision: string;
     recommendation_priority: 'High' | 'Medium' | 'Low';
   }[];
+  manuscript_flow?: { order: number; section_a: string; section_b: string; severity?: string | null; scores?: { overall_coherence?: number | null } }[];
   manuscript_sections?: { name: string; text: string | null }[];
   credits_remaining?: number | null;
 }

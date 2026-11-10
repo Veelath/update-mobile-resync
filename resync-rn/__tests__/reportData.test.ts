@@ -1,5 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
-import { categoryPercent, liveScoreCategories, MANUSCRIPT_BLOCKS, overallScore, RECOMMENDATIONS, SCORE_CATEGORIES } from '../src/data/report';
+import { categoryPercent, liveScoreCategories, MANUSCRIPT_BLOCKS, overallScore, RECOMMENDATIONS, SCORE_CATEGORIES,
+  liveFlowSummary,
+} from '../src/data/report';
 
 it('points every recommendation at exactly one manuscript passage', () => {
   for (const rec of RECOMMENDATIONS) {
@@ -48,5 +50,22 @@ describe('liveScoreCategories', () => {
     expect(categories).toHaveLength(1);
     expect(categoryPercent(categories[0])).toBeCloseTo(36.82);
     expect(categories[0].total).toBeUndefined();
+  });
+});
+
+describe('liveFlowSummary', () => {
+  it('counts flagged or recommended pairs as issues and the rest as all clear, like the website', () => {
+    const result = {
+      recommendations: [{ pair_order: 3 }],
+      manuscript_flow: [
+        { order: 1, section_a: 'introduction', section_b: 'presentation', severity: 'Critical', scores: { overall_coherence: 0.8 } },
+        { order: 2, section_a: 'objectives of the study', section_b: 'methodology', severity: 'None', scores: { overall_coherence: 0.2 } },
+        { order: 3, section_a: 'method', section_b: 'presentation', severity: 'None', scores: { overall_coherence: 0.3 } },
+        { order: 4, section_a: 'design', section_b: 'findings', severity: null, scores: { overall_coherence: 0.4 } },
+        { order: 5, section_a: 'a', section_b: 'b', severity: 'None', scores: { overall_coherence: null } },
+      ],
+    } as any;
+    expect(liveFlowSummary(result)).toEqual({ issues: 2, allClear: [{ from: 'Objectives Of The Study', to: 'Methodology' }] });
+    expect(liveFlowSummary(undefined)).toEqual({ issues: 0, allClear: [] });
   });
 });
