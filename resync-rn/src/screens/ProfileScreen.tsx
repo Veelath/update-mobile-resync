@@ -15,6 +15,7 @@ import { AppHeader, initialsOf } from '../components/AppHeader';
 import { LineIcon, LineIconName } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
 import { Rise } from '../components/Rise';
+import { BackgroundScanProgress } from '../components/scan/BackgroundScanProgress';
 
 const Svg = SvgModule.Svg || (SvgModule as any).default || SvgModule;
 const { Defs, LinearGradient: SvgLinearGradient, Stop, Rect, Path, Ellipse, Circle } = SvgModule;
@@ -309,6 +310,7 @@ export const ProfileScreen: React.FC = () => {
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+      <BackgroundScanProgress />
     </View>
   );
 };

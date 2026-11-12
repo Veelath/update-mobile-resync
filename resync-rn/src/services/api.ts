@@ -74,33 +74,15 @@ const MAX_POLL_FAILURES = 6;
 export const LONG_PROCESSING_THRESHOLD_MS = 2 * 60 * 1000;
 
 export type ScanProgress = {
-  state: 'queued' | 'processing' | 'taking-longer';
-  position?: number;
-  estimatedWaitSeconds?: number;
+  state: 'processing' | 'taking-longer';
   message: string;
 };
 
-const estimateText = (seconds: number) => {
-  if (seconds < 60) return 'Less than a minute';
-  return `About ${Math.ceil(seconds / 60)} minute${seconds > 60 ? 's' : ''}`;
-};
-
 export const scanProgressFromStatus = (
-  response: Pick<ScanStatusResponse, 'status' | 'queue_position' | 'estimated_wait_seconds' | 'status_message_level' | 'elapsed_seconds'>,
+  response: Pick<ScanStatusResponse, 'status' | 'elapsed_seconds'>,
   clientElapsedMs = 0,
 ): ScanProgress => {
-  const queued = response.status === 'queued' || response.status_message_level === 'wait' || typeof response.queue_position === 'number';
-  if (queued) {
-    const position = typeof response.queue_position === 'number' ? response.queue_position : undefined;
-    return {
-      state: 'queued',
-      position,
-      estimatedWaitSeconds: response.estimated_wait_seconds,
-      message: position === undefined
-        ? 'Other scans are running. Yours will start soon.'
-        : `Waiting in line\nPosition ${position}${typeof response.estimated_wait_seconds === 'number' ? ` · Estimated wait: ${estimateText(response.estimated_wait_seconds)}` : ''}`,
-    };
-  }
+  // Scans run side by side, so a scan the backend still lists as queued is shown as analyzing
   if ((response.elapsed_seconds ?? 0) * 1000 >= LONG_PROCESSING_THRESHOLD_MS || clientElapsedMs >= LONG_PROCESSING_THRESHOLD_MS) {
     return { state: 'taking-longer', message: 'This is taking longer than usual. Your scan is still running.' };
   }

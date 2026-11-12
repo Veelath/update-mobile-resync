@@ -45,6 +45,7 @@ import {
 import { CheckCount, ScanItem } from '../data/scans';
 import { getAllScans, unlockScan } from '../services/scanRepository';
 import { useCreditBalance } from '../services/credits';
+import { BackgroundScanProgress } from '../components/scan/BackgroundScanProgress';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 type ReportView = 'report' | 'manuscript';
@@ -120,7 +121,16 @@ const CategoryCard: React.FC<{ category: ScoreCategory; open: boolean; onPress: 
           <Text style={styles.catUnit}>%</Text>
         </View>
       )}
-      <Text style={styles.catCaption}>{pct === null ? c.naCaption : c.total === undefined ? `${Math.round(pct)} out of 100` : `${c.correct} out of ${c.total} correct`}</Text>
+      {pct !== null && (c.flow || c.cross) ? (
+        // One line per check, as the website shows them
+        categoryGroups(c).map((g) => (
+          <Text key={g.label} style={styles.catCaption}>
+            {g.label} {g.count.passed}/{g.count.items}
+          </Text>
+        ))
+      ) : (
+        <Text style={styles.catCaption}>{pct === null ? c.naCaption : c.total === undefined ? `${Math.round(pct)} out of 100` : `${c.correct} out of ${c.total} correct`}</Text>
+      )}
       <Bar pct={pct ?? 0} color={c.color} />
     </Pressable>
   );
@@ -802,6 +812,7 @@ export const ReportScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
       </BottomSheet>
+      <BackgroundScanProgress />
     </View>
   );
 };

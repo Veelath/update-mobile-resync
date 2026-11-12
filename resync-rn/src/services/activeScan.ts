@@ -4,8 +4,8 @@ import { ScanProgress } from './api';
 export type ActiveScan = {
   title: string;
   progress: ScanProgress;
-  /** When the scan left the queue; null while it is waiting in line. */
-  runningSince: number | null;
+  /** When the scan started. */
+  runningSince: number;
 };
 
 let current: ActiveScan | null = null;
@@ -16,14 +16,11 @@ const publish = (scan: ActiveScan | null) => {
   listeners.forEach((listener) => listener(scan));
 };
 
-const runningSince = (progress: ScanProgress, previous: number | null) =>
-  progress.state === 'queued' ? null : previous ?? Date.now();
-
 export const startActiveScan = (title: string, progress: ScanProgress) =>
-  publish({ title, progress, runningSince: runningSince(progress, null) });
+  publish({ title, progress, runningSince: Date.now() });
 
 export const updateActiveScan = (progress: ScanProgress) => {
-  if (current) publish({ ...current, progress, runningSince: runningSince(progress, current.runningSince) });
+  if (current) publish({ ...current, progress });
 };
 
 export const clearActiveScan = () => publish(null);

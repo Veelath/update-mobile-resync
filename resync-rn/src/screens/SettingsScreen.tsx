@@ -24,6 +24,7 @@ import { LineIcon, LineIconName } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
 import { PasswordRules, meetsPasswordRules } from '../components/PasswordRules';
 import { Rise } from '../components/Rise';
+import { BackgroundScanProgress } from '../components/scan/BackgroundScanProgress';
 
 /** Pill switch from the mockup; the knob slides rather than jumping. */
 const Toggle: React.FC<{ value: boolean; onChange: (v: boolean) => void }> = ({ value, onChange }) => {
@@ -241,6 +242,7 @@ export const SettingsScreen: React.FC = () => {
           </PressableScale>
         </Rise>
       </ScrollView>
+      <BackgroundScanProgress />
     </KeyboardAvoidingView>
   );
 };

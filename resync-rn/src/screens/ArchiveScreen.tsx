@@ -19,6 +19,7 @@ import { ScoreBadge } from '../components/ScoreBadge';
 import { ScanItem } from '../data/scans';
 import { getAllScans } from '../services/scanRepository';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackgroundScanProgress } from '../components/scan/BackgroundScanProgress';
 
 export const ArchiveScreen: React.FC = () => {
   const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -133,6 +134,7 @@ export const ArchiveScreen: React.FC = () => {
           );
         }}
       />
+      <BackgroundScanProgress />
     </View>
   );
 };

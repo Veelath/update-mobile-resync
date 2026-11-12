@@ -165,17 +165,21 @@ export const overallScore = (categories: ScoreCategory[]) => {
 const titleCase = (name: string) => name.replace(/\b([a-z])/g, (_, c: string) => c.toUpperCase());
 
 /**
- * Sorts the pairs of sections the scan compared the way the website does: a pair is an issue when the scan
- * flagged it or recommends something for it, and all clear when it has no problem and no recommendation.
+ * Sorts the pairs of sections the scan compared the way the website does: a pair is an issue when it missed a
+ * category's check, the scan flagged it or recommends something for it, and all clear otherwise.
  */
 export const liveFlowSummary = (result?: BackendScanResult) => {
   const withRecommendation = new Set((result?.recommendations ?? []).map((r) => r.pair_order));
+  const failed = new Set(
+    Object.values(result?.score_breakdown?.dimension_breakdown ?? {}).flatMap((d) => (d.failures ?? []).map((f) => f.order)),
+  );
+  const needsWork = (order: number) => failed.has(order) || withRecommendation.has(order);
   const pairs = result?.manuscript_flow ?? [];
   const issues = pairs.filter((p) =>
-    p.severity !== undefined ? p.severity !== null && (p.severity !== 'None' || withRecommendation.has(p.order)) : withRecommendation.has(p.order),
+    p.severity !== undefined ? p.severity !== null && (p.severity !== 'None' || needsWork(p.order)) : needsWork(p.order),
   );
   const allClear = pairs
-    .filter((p) => p.scores?.overall_coherence != null && p.severity === 'None' && !withRecommendation.has(p.order))
+    .filter((p) => p.scores?.overall_coherence != null && p.severity === 'None' && !needsWork(p.order))
     .map((p) => ({ from: titleCase(p.section_a), to: titleCase(p.section_b) }));
   return { issues: issues.length, allClear };
 };

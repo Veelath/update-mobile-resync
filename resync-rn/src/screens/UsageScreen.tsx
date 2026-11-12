@@ -14,6 +14,7 @@ import { LineIcon } from '../components/LineIcon';
 import { PressableScale } from '../components/PressableScale';
 import { Rise } from '../components/Rise';
 import { BuyCreditsSheet } from '../components/credits/BuyCreditsSheet';
+import { BackgroundScanProgress } from '../components/scan/BackgroundScanProgress';
 
 const formatWhen = (iso: string) =>
   new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -156,6 +157,7 @@ export const UsageScreen: React.FC = () => {
       </ScrollView>
 
       <BuyCreditsSheet visible={buying} userName={session?.userName ?? ''} onClose={() => setBuying(false)} onPurchased={onPurchased} />
+      <BackgroundScanProgress />
     </View>
   );
 };

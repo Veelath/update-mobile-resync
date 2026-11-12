@@ -44,8 +44,7 @@ export const BackgroundScanProgress: React.FC = () => {
 
   if (!scan) return null;
 
-  const queued = scan.runningSince === null;
-  const elapsed = queued ? 0 : Math.max(0, now - scan.runningSince!);
+  const elapsed = Math.max(0, now - scan.runningSince);
   const pct = Math.floor(Math.min(elapsed / FILL_MS, 1) * MAX_PCT);
   const check = CHECKS[Math.min(CHECKS.length - 1, Math.floor(pct / QUARTER))];
 
@@ -63,12 +62,12 @@ export const BackgroundScanProgress: React.FC = () => {
             <View style={styles.head}>
               <Spinner size={24} track="#E4E2FF" color={brand.primary} />
               <View style={styles.flex1}>
-                <Text style={styles.title}>{queued ? 'Waiting in line' : 'Analyzing your manuscript'}</Text>
+                <Text style={styles.title}>Analyzing your manuscript</Text>
                 <Text style={styles.docName} numberOfLines={1}>
                   {scan.title}
                 </Text>
               </View>
-              {!queued && <Text style={styles.pct}>{pct}%</Text>}
+              <Text style={styles.pct}>{pct}%</Text>
             </View>
 
             <View style={styles.track}>
@@ -76,8 +75,8 @@ export const BackgroundScanProgress: React.FC = () => {
             </View>
 
             <View style={styles.check}>
-              <Text style={styles.checkTitle}>{queued ? 'In the queue' : check.title}</Text>
-              <Text style={styles.checkSub}>{queued ? scan.progress.message : check.sub}</Text>
+              <Text style={styles.checkTitle}>{check.title}</Text>
+              <Text style={styles.checkSub}>{check.sub}</Text>
             </View>
 
             <Text style={styles.note}>You can keep using the app. We will notify you when your report is ready.</Text>

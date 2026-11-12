@@ -23,6 +23,7 @@ export interface DimensionBreakdown extends Partial<CheckCount> {
   score?: number | null; // 0 to 100
   flow?: CheckCount;
   cross?: CheckCount;
+  failures?: { order: number }[]; // the section pairs that missed this check
 }
 
 export interface BackendScanResult {

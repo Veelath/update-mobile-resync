@@ -76,16 +76,8 @@ describe('scan polling', () => {
     await expect(pollScan('scan-1', { intervalMs: 0 })).rejects.toThrow('Not a research paper.');
   });
 
-  it('shows the queue position and estimate reported by the backend', () => {
-    expect(scanProgressFromStatus({
-      status: 'processing',
-      queue_position: 2,
-      estimated_wait_seconds: 180,
-    })).toMatchObject({
-      state: 'queued',
-      position: 2,
-      message: 'Waiting in line\nPosition 2 · Estimated wait: About 3 minutes',
-    });
+  it('shows a queued scan as analyzing, since scans run side by side', () => {
+    expect(scanProgressFromStatus({ status: 'queued' })).toMatchObject({ state: 'processing' });
   });
 
   it('keeps a long-running scan in progress with the taking-longer message', () => {

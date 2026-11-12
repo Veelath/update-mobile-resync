@@ -68,4 +68,22 @@ describe('liveFlowSummary', () => {
     expect(liveFlowSummary(result)).toEqual({ issues: 2, allClear: [{ from: 'Objectives Of The Study', to: 'Methodology' }] });
     expect(liveFlowSummary(undefined)).toEqual({ issues: 0, allClear: [] });
   });
+
+  it('counts a pair that missed any category check as an issue', () => {
+    const result = {
+      recommendations: [],
+      score_breakdown: {
+        dimension_breakdown: {
+          context_alignment: { failures: [{ order: 2 }] },
+          logical_support: { failures: [{ order: 2 }, { order: 3 }] },
+        },
+      },
+      manuscript_flow: [
+        { order: 1, section_a: 'introduction', section_b: 'methodology', severity: 'None', scores: { overall_coherence: 0.2 } },
+        { order: 2, section_a: 'related literature', section_b: 'related studies', severity: 'None', scores: { overall_coherence: 0.4 } },
+        { order: 3, section_a: 'related studies', section_b: 'matrix', severity: 'None', scores: { overall_coherence: 0.5 } },
+      ],
+    } as any;
+    expect(liveFlowSummary(result)).toEqual({ issues: 2, allClear: [{ from: 'Introduction', to: 'Methodology' }] });
+  });
 });

@@ -107,17 +107,14 @@ export const AnalyzingView: React.FC<{ progress: ScanProgress; onBackground: () 
   const [pct, setPct] = useState(0);
   const [prevPhase, setPrevPhase] = useState<number | null>(null);
 
-  // Start filling once the scan leaves the queue
-  const running = scanProgress.state !== 'queued';
   useEffect(() => {
-    if (!running) return;
     const id = progress.addListener(({ value }) => setPct(Math.floor(value)));
     Animated.timing(progress, { toValue: MAX_PCT, duration: FILL_MS, easing: Easing.linear, useNativeDriver: false }).start();
     return () => {
       progress.removeListener(id);
       progress.stopAnimation();
     };
-  }, [running, progress]);
+  }, [progress]);
 
   const phase = Math.min(CHECKS.length - 1, Math.floor(pct / QUARTER));
   // The last check only completes when the report does, which takes this screen away
@@ -186,52 +183,46 @@ export const AnalyzingView: React.FC<{ progress: ScanProgress; onBackground: () 
         </Rise>
 
         <Rise delay={250} style={styles.center}>
-          <Text style={styles.title}>{scanProgress.state === 'queued' ? 'Waiting in line' : 'Analyzing your manuscript'}</Text>
+          <Text style={styles.title}>Analyzing your manuscript</Text>
           <Text style={styles.sub}>
             {scanProgress.state === 'processing' ? `Running ${CHECKS.length} checks as a holistic manuscript analysis` : scanProgress.message}
           </Text>
         </Rise>
 
         <Rise delay={400} style={styles.card}>
-          {scanProgress.state === 'queued' ? (
-            <Text style={styles.queueText}>{scanProgress.message}</Text>
-          ) : (
-            <>
-              <View style={styles.statusRow}>
-                <View style={styles.statusLeft}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>{CHECKS[phase].status}</Text>
-                </View>
-                <Text style={styles.pct}>{pct}%</Text>
-              </View>
+          <View style={styles.statusRow}>
+            <View style={styles.statusLeft}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>{CHECKS[phase].status}</Text>
+            </View>
+            <Text style={styles.pct}>{pct}%</Text>
+          </View>
 
-              <View style={styles.track}>
-                <Animated.View
-                  style={[styles.fill, { width: progress.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
-                >
-                  <LinearGradient colors={['#4A44E0', brand.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-                  <Animated.View
-                    style={[
-                      styles.shine,
-                      { transform: [{ translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-120, 340] }) }] },
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={StyleSheet.absoluteFill}
-                    />
-                  </Animated.View>
-                </Animated.View>
-              </View>
+          <View style={styles.track}>
+            <Animated.View
+              style={[styles.fill, { width: progress.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
+            >
+              <LinearGradient colors={['#4A44E0', brand.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+              <Animated.View
+                style={[
+                  styles.shine,
+                  { transform: [{ translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-120, 340] }) }] },
+                ]}
+              >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
+            </Animated.View>
+          </View>
 
-              <View style={styles.rowSlot}>
-                {prevPhase !== null && <CheckRow key={`out-${prevPhase}`} index={prevPhase} done leaving />}
-                <CheckRow key={phase} index={phase} done={done} leaving={false} />
-              </View>
-            </>
-          )}
+          <View style={styles.rowSlot}>
+            {prevPhase !== null && <CheckRow key={`out-${prevPhase}`} index={prevPhase} done leaving />}
+            <CheckRow key={phase} index={phase} done={done} leaving={false} />
+          </View>
         </Rise>
 
         <Rise delay={400} style={styles.footer}>
@@ -387,13 +378,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 120,
-  },
-  queueText: {
-    fontFamily: fonts.sans[600],
-    fontSize: 15,
-    lineHeight: 22,
-    color: brand.ink,
-    textAlign: 'center',
   },
   rowSlot: {
     height: 74,
