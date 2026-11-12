@@ -350,6 +350,12 @@ export const CITATIONS: Citation[] = [
 export interface ManuscriptBlock {
   kind: 'chapter' | 'heading' | 'text';
   text: string;
+  // Formatting read from a Word or Google Doc, so a preview can look like the page. Unset means plain.
+  align?: 'center' | 'right' | 'justify';
+  bold?: boolean;
+  italic?: boolean;
+  size?: number; // points
+  gap?: boolean; // blank paragraph(s) before this one
 }
 
 export const MANUSCRIPT_BLOCKS: ManuscriptBlock[] = [

@@ -8,7 +8,7 @@ jest.mock('../src/config.local', () => ({
 import { config } from '../src/config';
 
 it('uses the deployed backend, disables mocks, and loads only public Supabase configuration', () => {
-  expect(config.API_BASE_URL).toBe('https://resync-backend-fh8s.onrender.com/');
+  expect(config.API_BASE_URL).toBe('https://13-236-73-25.sslip.io/');
   expect(config.USE_MOCK).toBe(false);
   expect(config.SUPABASE_URL).toBe('https://example.supabase.co');
   expect(config.SUPABASE_ANON_KEY).toBe('test-anon-key');

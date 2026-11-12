@@ -678,9 +678,9 @@ export const UploadScreen: React.FC = () => {
                     {fileReading ? 'Reading your document…' : 'This file can’t be previewed here, but Resync can still scan it.'}
                   </Text>
                 )}
-                <View style={styles.pageBody}>
+                <View style={preview.blocks.some((b) => b.align || b.bold || b.italic || b.size || b.gap) ? styles.pageBodyFormatted : styles.pageBody}>
                   {preview.blocks.map((b, i) => (
-                    <Text key={i} style={PAGE_TEXT[b.kind]}>
+                    <Text key={i} style={blockStyle(b)}>
                       {b.text}
                     </Text>
                   ))}
@@ -772,7 +772,7 @@ export const UploadScreen: React.FC = () => {
           </>
         )}
         {phase === 'upload' && (
-          <PrimaryButton label="Continue · Confirm document" disabled={!uploadValid} onPress={() => goTo('confirm')} />
+          <PrimaryButton label="Continue" disabled={!uploadValid} onPress={() => goTo('confirm')} />
         )}
         {phase === 'confirm' && (
           <>
@@ -1261,6 +1261,9 @@ const styles = StyleSheet.create({
   pageBody: {
     gap: 8,
   },
+  pageBodyFormatted: {
+    gap: 2,
+  },
   pageChapter: {
     marginTop: 8,
     fontFamily: 'serif',
@@ -1445,6 +1448,27 @@ const styles = StyleSheet.create({
     color: brand.ink,
   },
 });
+
+// Points on the page scale down to fit the phone preview
+const PAGE_SCALE = 0.85;
+
+/** A block's style, following the Word or Google Doc's own look when it has one. */
+const blockStyle = (b: ManuscriptBlock): TextStyle[] => {
+  const base = PAGE_TEXT[b.kind];
+  if (b.align === undefined && !b.bold && !b.italic && b.size === undefined && !b.gap) return [base];
+  const fontSize = (b.size ?? 12) * PAGE_SCALE;
+  return [
+    styles.pageText,
+    {
+      fontSize,
+      lineHeight: fontSize * 1.45,
+      textAlign: b.align ?? 'left',
+      fontWeight: b.bold ? '700' : '400',
+      fontStyle: b.italic ? 'italic' : 'normal',
+      marginTop: b.gap ? fontSize * 1.2 : 0,
+    },
+  ];
+};
 
 const PAGE_TEXT: Record<ManuscriptBlock['kind'], TextStyle> = {
   chapter: styles.pageChapter,

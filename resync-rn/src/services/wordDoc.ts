@@ -1,4 +1,5 @@
 import { strFromU8, strToU8, unzipSync } from 'fflate';
+import type { ManuscriptBlock } from '../data/report';
 import { GoogleDoc, parseDocText } from './googleDocs';
 
 const DOCUMENT_XML = 'word/document.xml';
@@ -27,14 +28,101 @@ const paragraphText = (paragraph: string) => {
   return decodeXml(strFromU8(strToU8(text, true)));
 };
 
-/** Pulls the paragraphs out of a .docx, which is a zip with the text in word/document.xml. */
-export const parseDocx = (bytes: Uint8Array): GoogleDoc => {
+const ALIGN: Record<string, 'center' | 'right' | 'justify'> = { center: 'center', right: 'right', both: 'justify', distribute: 'justify' };
+
+/** Reads one attribute of the first matching tag, such as w:val of <w:jc>. */
+const attr = (xml: string, tag: string, name: string) => {
+  const at = xml.indexOf(tag);
+  if (at === -1) return null;
+  const end = xml.indexOf('>', at);
+  const from = xml.indexOf(`${name}="`, at);
+  if (from === -1 || from > end) return null;
+  const start = from + name.length + 2;
+  return xml.slice(start, xml.indexOf('"', start));
+};
+
+/** True for <w:b/> and <w:b w:val="1"/> but not <w:b w:val="0"/>. */
+const flag = (props: string, tag: string) => {
+  const at = props.indexOf(tag);
+  if (at === -1) return false;
+  const next = props[at + tag.length];
+  if (next !== '/' && next !== ' ') return false;
+  const value = attr(props, tag, 'w:val');
+  return value !== '0' && value !== 'false';
+};
+
+/** Reads the look of one paragraph: its alignment, whether all its text is bold or italic, and the text size. */
+const paragraphFormat = (paragraph: string): Omit<ManuscriptBlock, 'kind' | 'text' | 'gap'> => {
+  const format: Omit<ManuscriptBlock, 'kind' | 'text' | 'gap'> = {};
+  const pEnd = paragraph.indexOf('</w:pPr>');
+  const align = attr(pEnd === -1 ? '' : paragraph.slice(0, pEnd), '<w:jc', 'w:val');
+  if (align && ALIGN[align]) format.align = ALIGN[align];
+  let bold = true;
+  let italic = true;
+  let size = 0;
+  let any = false;
+  for (const run of paragraph.split(/<w:r[ >]/).slice(1)) {
+    const text = run.indexOf('<w:t');
+    if (text === -1 || !/^<w:t[ >]/.test(run.slice(text, text + 5))) continue;
+    const content = run.slice(run.indexOf('>', text) + 1, run.indexOf('</w:t>', text));
+    if (!content.trim()) continue;
+    const rEnd = run.indexOf('</w:rPr>');
+    const props = rEnd === -1 ? '' : run.slice(0, rEnd);
+    any = true;
+    if (!flag(props, '<w:b')) bold = false;
+    if (!flag(props, '<w:i')) italic = false;
+    if (!size) size = Number(attr(props, '<w:sz ', 'w:val')) / 2 || 0;
+  }
+  if (any && bold) format.bold = true;
+  if (any && italic) format.italic = true;
+  if (size) format.size = size;
+  return format;
+};
+
+// A long manuscript is thousands of paragraphs; the preview only shows its first pages
+const PREVIEW_PARAGRAPHS = 400;
+
+/** The paragraphs of a .docx, which is a zip with the text in word/document.xml. */
+const readParagraphs = (bytes: Uint8Array): string[] => {
   const file = unzipSync(bytes, { filter: (f) => f.name === DOCUMENT_XML })[DOCUMENT_XML];
   if (!file) throw new Error('Not a Word document.');
   // Decoding megabytes of UTF-8 freezes Hermes, so the XML stays as raw bytes and only paragraph text is decoded
-  const paragraphs = strFromU8(file, true).split('<w:tab/>').join(SPACE_RUN).split('<w:br/>').join(SPACE_RUN).split('</w:p>');
-  return parseDocText(paragraphs.map(paragraphText).join('\n'));
+  return strFromU8(file, true).split('</w:p>');
 };
+
+// Tabs and line breaks read as spaces
+const spaced = (paragraph: string) => paragraph.split('<w:tab/>').join(SPACE_RUN).split('<w:br/>').join(SPACE_RUN);
+
+/** The first pages with the look they have in the document. Null when the document has no styling worth showing. */
+const formattedBlocks = (paragraphs: string[]): ManuscriptBlock[] | null => {
+  const blocks: ManuscriptBlock[] = [];
+  let gap = false;
+  let styled = false;
+  for (let i = 0; i < paragraphs.length && blocks.length < PREVIEW_PARAGRAPHS; i++) {
+    const paragraph = spaced(paragraphs[i]);
+    const text = paragraphText(paragraph).trim();
+    if (!text) {
+      if (blocks.length) gap = true;
+      continue;
+    }
+    const format = paragraphFormat(paragraph);
+    if (format.align || format.bold || format.italic) styled = true;
+    blocks.push({ kind: 'text', text, ...format, ...(gap ? { gap: true } : {}) });
+    gap = false;
+  }
+  return styled ? blocks : null;
+};
+
+/** Pulls the paragraphs out of a .docx. */
+export const parseDocx = (bytes: Uint8Array): GoogleDoc => {
+  const paragraphs = readParagraphs(bytes);
+  const plain = parseDocText(paragraphs.map((p) => paragraphText(spaced(p))).join('\n'));
+  // Keep the page's look only when the document has some; a plain one reads the same either way
+  const blocks = formattedBlocks(paragraphs);
+  return blocks ? { ...plain, blocks } : plain;
+};
+
+
 
 export const base64ToBytes = (base64: string): Uint8Array => {
   const clean = base64.replace(/=+$/, '');

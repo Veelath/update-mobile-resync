@@ -21,6 +21,18 @@ describe('parseDocx', () => {
     expect(doc.blocks).toEqual([{ kind: 'text', text: 'One two. Three.' }]);
   });
 
+  it('keeps alignment, bold, size and spacing when the document has them', () => {
+    const doc = parseDocx(docx([
+      '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>RESYNC: A SYSTEM</w:t></w:r></w:p>',
+      '<w:p><w:pPr><w:jc w:val="left"/></w:pPr></w:p>',
+      '<w:p><w:pPr><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:b w:val="0"/><w:sz w:val="20"/></w:rPr><w:t>Plain body text.</w:t></w:r></w:p>',
+    ].join('')));
+    expect(doc.blocks).toEqual([
+      { kind: 'text', text: 'RESYNC: A SYSTEM', align: 'center', bold: true, size: 12 },
+      { kind: 'text', text: 'Plain body text.', align: 'justify', size: 10, gap: true },
+    ]);
+  });
+
   it('rejects a zip that is not a Word document', () => {
     expect(() => parseDocx(zipSync({ 'a.txt': strToU8('x') }))).toThrow();
   });

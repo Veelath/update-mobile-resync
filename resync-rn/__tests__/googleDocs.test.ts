@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { fetchGoogleDoc, googleDocId, parseDocText } from '../src/services/googleDocs';
+import { fetchGoogleDoc, googleDocId, parseDocHtmlPreview, parseDocText, startAtDocText } from '../src/services/googleDocs';
 
 const ID = '195j9eDD3ccgjQRttHhJPymLJUCOUjs-jmwTrekvdjFE';
 
@@ -82,5 +82,39 @@ describe('fetchGoogleDoc', () => {
     const fetchMock = mockFetch({});
     expect(await fetchGoogleDoc('https://example.com/doc')).toEqual({ status: 'invalid' });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseDocHtmlPreview', () => {
+  const para = (text: string, align: string, style = '') =>
+    `<p style="text-align:${align}"><span style="font-size:12pt;${style}">${text}</span></p>`;
+
+  it('keeps the alignment, bold and spacing of the first pages', () => {
+    const html = `<body><div class="doc-content">${para('A TITLE', 'center', 'font-weight:700')}<p style="text-align:left"><span></span></p>${para('Tom &amp; Ana<sup><a id="cmnt_ref1">[a]</a></sup>', 'left')}</div></body>`;
+    expect(parseDocHtmlPreview(html)).toEqual([
+      { kind: 'text', text: 'A TITLE', align: 'center', bold: true, size: 12 },
+      { kind: 'text', text: 'Tom & Ana', size: 12, gap: true },
+    ]);
+  });
+
+  it('returns null when the page has no styling to show', () => {
+    expect(parseDocHtmlPreview(`<div class="doc-content">${para('Plain', 'left')}</div>`)).toBeNull();
+    expect(parseDocHtmlPreview('<html></html>')).toBeNull();
+  });
+});
+
+describe('startAtDocText', () => {
+  const block = (text: string) => ({ kind: 'text' as const, text, align: 'center' as const });
+
+  it('drops the title Google adds above the text', () => {
+    const formatted = [block('UPDATED MANUSCRIPT'), block('RESYNC: A  SYSTEM'), block('By')];
+    expect(startAtDocText(formatted, [{ kind: 'text', text: 'RESYNC: A SYSTEM' }]).map((b) => b.text)).toEqual(['RESYNC: A  SYSTEM', 'By']);
+  });
+
+  it('keeps a title that is part of the text, and falls back to the plain blocks', () => {
+    const formatted = [block('My Title'), block('Intro')];
+    expect(startAtDocText(formatted, [{ kind: 'text', text: 'My Title' }])).toBe(formatted);
+    const plain = [{ kind: 'text' as const, text: 'x' }];
+    expect(startAtDocText(null, plain)).toBe(plain);
   });
 });
